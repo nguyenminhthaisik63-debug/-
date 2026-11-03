@@ -104,7 +104,7 @@
     .hang { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
     .hop { background: #1d1745; border: 1px solid #2f2a63; border-radius: 18px; padding: 18px; margin-top: 20px; }
     .hop h2 { margin: 0 0 12px; font-size: 20px; }
-    input[type="text"], input[type="password"], select { background: var(--nen); color: var(--chu); border: 2px solid var(--vien);
+    input[type="text"], input[type="password"], input[type="number"], select { background: var(--nen); color: var(--chu); border: 2px solid var(--vien);
            border-radius: 10px; padding: 10px 12px; font-size: 16px; font-family: inherit; }
     .them { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
     .them input { min-width: 0; }
@@ -232,6 +232,16 @@
     .camUng { display: none; }
     @media (pointer: coarse) { .camUng { display: inline; } .phimTatBang { display: none; } }
 
+    /* ----- Thống kê học tập ----- */
+    .tkThanh { height: 14px; border-radius: 999px; background: #2a2560; overflow: hidden; margin: 14px 0 6px; }
+    .tkThanh i { display: block; height: 100%; width: 0; background: var(--luc); border-radius: 999px; transition: width .3s; }
+    .tkBieuDo { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; height: 130px; margin: 14px 0 10px; }
+    .tkCot { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; font-size: 12px; color: var(--phu); min-width: 0; }
+    .tkCot b { color: var(--chu); font-size: 12px; }
+    .tkCot i { display: block; width: 100%; max-width: 38px; min-height: 3px; background: var(--vien); border-radius: 6px 6px 0 0; }
+    .tkCot i.dat { background: var(--luc); }
+    .tkCot.nay span { color: var(--timNhat); font-weight: 700; }
+
     /* ----- Thanh tab dưới cùng ----- */
     #thanhTab { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: #1d1745;
                 border-top: 1px solid #2f2a63; padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)); gap: 2px; }
@@ -255,6 +265,19 @@
         <p class="muted">Chọn một học phần để bắt đầu. Các từ chỉ hiện ra sau khi bạn mở học phần.</p>
         <div class="tongSo" id="tongSo" aria-label="Thống kê toàn thư viện"></div>
       </div>
+    <section class="hop" id="khuThongKe">
+      <h2>📊 Thống kê học tập</h2>
+      <div class="tongSo" id="tkO" style="margin-top:0" aria-label="Chuỗi ngày và số thẻ đã ôn"></div>
+      <div class="tkThanh" role="progressbar" aria-label="Tiến độ mục tiêu hôm nay" aria-valuemin="0" aria-valuemax="100" id="tkThanh"><i id="tkThanhIn"></i></div>
+      <p class="muted" id="tkChu" style="margin:0 0 4px"></p>
+      <div class="tkBieuDo" id="tkBieuDo" role="img" aria-label="Số thẻ đã ôn trong 7 ngày gần nhất"></div>
+      <div class="hang" style="align-items:center">
+        <label for="tkMucTieu" class="muted">Mục tiêu mỗi ngày (số thẻ):</label>
+        <input type="number" id="tkMucTieu" min="1" max="1000" inputmode="numeric" style="width:100px">
+      </div>
+      <p class="muted" style="margin:0;font-size:13px">Mỗi lần bạn bấm ✓ / ✕ (khi bật «Theo dõi tiến độ») hoặc trả lời một câu trắc nghiệm được tính là 1 thẻ. Ngày có ít nhất 1 thẻ được tính vào chuỗi ngày liên tiếp.</p>
+    </section>
+
     <section class="hop">
       <h2>📚 Thư viện của bạn / Ваша библиотека</h2>
       <div id="dsMuc" class="hang"></div>
@@ -377,6 +400,7 @@
     </div>
     <p class="nhanChieu" id="nhanChieu"></p>
     <p class="nhanChieu" id="nhanVong" style="margin-top:-6px"></p>
+    <p class="nhanChieu" id="nhanMucTieu" style="margin-top:-6px"></p>
 
     <div class="khungThe">
       <div id="card" tabindex="0" role="button" aria-label="Thẻ từ vựng, nhấn để lật">
@@ -683,20 +707,155 @@
 
     var danhSach = thuVien[hienTai].tu; // các hàm bên dưới làm việc trên học phần đang mở
 
+    // ===== THỐNG KÊ HỌC TẬP: thẻ đã ôn mỗi ngày, chuỗi ngày liên tiếp, mục tiêu =====
+    var thongKe = { ngay: {}, mucTieu: 20 };   // ngay: { "2026-11-03": { on: số thẻ đã chấm, biet: số lần bấm «đã biết» } }
+
+    function chuanThongKe(x) {
+      var kq = { ngay: {}, mucTieu: 20 };
+      if (!x || typeof x !== "object") return kq;
+      var mt = parseInt(x.mucTieu, 10);
+      if (mt >= 1 && mt <= 1000) kq.mucTieu = mt;
+      var ng = (x.ngay && typeof x.ngay === "object") ? x.ngay : {};
+      Object.keys(ng).forEach(function (k) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !ng[k]) return;
+        var on = Math.max(0, parseInt(ng[k].on, 10) || 0), bi = Math.max(0, parseInt(ng[k].biet, 10) || 0);
+        if (on || bi) kq.ngay[k] = { on: on, biet: bi };
+      });
+      return kq;
+    }
+    try {
+      var tkLuu = JSON.parse(localStorage.getItem("thongKeNga") || "null");
+      if (tkLuu) thongKe = chuanThongKe(tkLuu);
+    } catch (loi) {}
+
+    // Gộp thống kê từ nơi khác (mỗi ngày lấy giá trị lớn hơn)
+    function gopThongKe(x) {
+      var y = chuanThongKe(x);
+      Object.keys(y.ngay).forEach(function (k) {
+        var a = thongKe.ngay[k];
+        if (!a) thongKe.ngay[k] = y.ngay[k];
+        else { a.on = Math.max(a.on, y.ngay[k].on); a.biet = Math.max(a.biet, y.ngay[k].biet); }
+      });
+    }
+
+    function khoaNgay(d) {
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+
+    // Ghi 1 thẻ vừa chấm (buoc = -1 để hoàn tác). Trả về khóa ngày đã ghi.
+    function ghiThongKe(biet, buoc, khoa) {
+      buoc = buoc || 1;
+      khoa = khoa || khoaNgay(new Date());
+      var o = thongKe.ngay[khoa] || (thongKe.ngay[khoa] = { on: 0, biet: 0 });
+      var truoc = o.on;
+      o.on = Math.max(0, o.on + buoc);
+      if (biet) o.biet = Math.max(0, o.biet + buoc);
+      if (o.on === 0 && o.biet === 0) delete thongKe.ngay[khoa];
+      if (buoc > 0 && truoc < thongKe.mucTieu && o.on >= thongKe.mucTieu) {
+        setTimeout(function () { thongBao("🎉 Đạt mục tiêu hôm nay: " + o.on + " thẻ!"); }, 0);
+      }
+      return khoa;
+    }
+
+    function coHoc(d) { var o = thongKe.ngay[khoaNgay(d)]; return !!o && o.on > 0; }
+
+    // Chuỗi ngày hiện tại (chưa học hôm nay thì vẫn tính tới hôm qua)
+    function tinhChuoi() {
+      var d = new Date();
+      d.setHours(12, 0, 0, 0);
+      if (!coHoc(d)) d.setDate(d.getDate() - 1);
+      var n = 0;
+      while (coHoc(d)) { n++; d.setDate(d.getDate() - 1); }
+      return n;
+    }
+
+    function chuoiDaiNhat() {
+      var ks = Object.keys(thongKe.ngay).filter(function (k) { return thongKe.ngay[k].on > 0; }).sort();
+      var best = 0, run = 0, truoc = null;
+      ks.forEach(function (k) {
+        var p = k.split("-"), d = new Date(+p[0], +p[1] - 1, +p[2], 12);
+        run = (truoc && Math.round((d - truoc) / 86400000) === 1) ? run + 1 : 1;
+        if (run > best) best = run;
+        truoc = d;
+      });
+      return best;
+    }
+
+    function capNhatDongMucTieu() {
+      var o = thongKe.ngay[khoaNgay(new Date())], n = o ? o.on : 0, c = tinhChuoi();
+      document.getElementById("nhanMucTieu").textContent = "🎯 Hôm nay " + n + "/" + thongKe.mucTieu +
+        (n >= thongKe.mucTieu ? " ✓" : "") + (c > 0 ? " · 🔥 " + c + " ngày liên tiếp" : "");
+    }
+
+    function veThongKe() {
+      var hn = new Date(), o = thongKe.ngay[khoaNgay(hn)], n = o ? o.on : 0, mt = thongKe.mucTieu;
+      var chuoi = tinhChuoi(), tong = 0;
+      Object.keys(thongKe.ngay).forEach(function (k) { tong += thongKe.ngay[k].on; });
+
+      // 7 ngày gần nhất (cũ → mới)
+      var ngay7 = [], tong7 = 0, lonNhat = mt;
+      for (var i = 6; i >= 0; i--) {
+        var d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i);
+        var oo = thongKe.ngay[khoaNgay(d)], v = oo ? oo.on : 0;
+        ngay7.push({ d: d, v: v, nay: i === 0 });
+        tong7 += v;
+        if (v > lonNhat) lonNhat = v;
+      }
+
+      var vung = document.getElementById("tkO");
+      vung.innerHTML = "";
+      [["🔥 Chuỗi hiện tại", chuoi + " ngày", chuoi > 0], ["🏆 Kỷ lục", chuoiDaiNhat() + " ngày"],
+       ["Hôm nay", n + " / " + mt], ["7 ngày qua", tong7 + " thẻ"], ["Tổng đã ôn", tong + " thẻ"]].forEach(function (x) {
+        var el = document.createElement("div");
+        el.className = "oSo" + (x[2] ? " chinh" : "");
+        var b = document.createElement("b"); b.textContent = x[1];
+        var t = document.createElement("span"); t.textContent = x[0];
+        el.appendChild(b); el.appendChild(t);
+        vung.appendChild(el);
+      });
+
+      var pt = Math.min(100, Math.round(n / mt * 100));
+      document.getElementById("tkThanhIn").style.width = pt + "%";
+      document.getElementById("tkThanh").setAttribute("aria-valuenow", pt);
+      document.getElementById("tkChu").textContent = n >= mt
+        ? "🎉 Đã đạt mục tiêu hôm nay (" + n + " / " + mt + " thẻ)"
+        : "Còn " + (mt - n) + " thẻ nữa để đạt mục tiêu hôm nay";
+
+      var bd = document.getElementById("tkBieuDo");
+      bd.innerHTML = "";
+      var ten = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+      ngay7.forEach(function (x) {
+        var cot = document.createElement("div");
+        cot.className = "tkCot" + (x.nay ? " nay" : "");
+        var so = document.createElement("b"); so.textContent = x.v;
+        var thanh = document.createElement("i");
+        thanh.style.height = Math.max(3, Math.round(x.v / lonNhat * 70)) + "px";
+        if (x.v >= mt) thanh.className = "dat";
+        var nhan = document.createElement("span"); nhan.textContent = x.nay ? "Nay" : ten[x.d.getDay()];
+        cot.appendChild(so); cot.appendChild(thanh); cot.appendChild(nhan);
+        bd.appendChild(cot);
+      });
+
+      var oMT = document.getElementById("tkMucTieu");
+      if (document.activeElement !== oMT) oMT.value = mt;
+      capNhatDongMucTieu();
+    }
+
     var suaLuc = 0;   // thời điểm nội dung (từ vựng, thư mục) được sửa lần cuối trên máy này
     try { suaLuc = Number(localStorage.getItem("thuVienSua")) || 0; } catch (loi) {}
-    var dauVanCu = JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc });
+    var dauVanCu = JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc, thongKe: thongKe });
 
     function dbGhiLocal() {
-      dauVanCu = JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc });
+      dauVanCu = JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc, thongKe: thongKe });
       try {
         localStorage.setItem("thuVienNga", JSON.stringify({ thuVien: thuVien, hienTai: hienTai, thuMuc: thuMuc }));
         localStorage.setItem("thuVienSua", String(suaLuc));
+        localStorage.setItem("thongKeNga", JSON.stringify(thongKe));
       } catch (loi) {}
     }
 
     function luu() {
-      if (JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc }) !== dauVanCu) { suaLuc = Date.now(); dbHenDay(); }
+      if (JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc, thongKe: thongKe }) !== dauVanCu) { suaLuc = Math.max(Date.now(), suaLuc + 1); dbHenDay(); }
       dbGhiLocal();
       veThuVien();
     }
@@ -803,6 +962,7 @@
         " · đã qua " + daQuaVong.size + " / " + poolVong.size + " thẻ";
 
       var nutSao = document.getElementById("btnSao");
+      capNhatDongMucTieu();
 
       if (danhSach.length === 0) {
         matTruoc.textContent = "Học phần này chưa có từ nào. Hãy thêm từ ở bên dưới!";
@@ -870,6 +1030,8 @@
       lichSu = { hocPhan: hienTai, chiSo: viTri, cu: tu.thuoc };
       if (document.getElementById("theoDoi").checked) {
         tu.thuoc = giaTri;
+        lichSu.ngay = ghiThongKe(giaTri, 1);   // tính 1 thẻ đã ôn
+        lichSu.biet = giaTri;
         luu();
       }
       chuyenThe(1);
@@ -879,6 +1041,7 @@
       if (lichSu && lichSu.hocPhan === hienTai && danhSach[lichSu.chiSo]) {
         var tu = danhSach[lichSu.chiSo];
         tu.thuoc = lichSu.cu;
+        if (lichSu.ngay) ghiThongKe(lichSu.biet, -1, lichSu.ngay);   // hoàn tác thì trừ lại
         daQuaVong.delete(tu); // thẻ được hoàn tác thì chưa tính là "đã qua"
         viTri = lichSu.chiSo;
         lichSu = null;
@@ -1279,6 +1442,7 @@
 
     function veThuVien() {
       veTongSo();
+      veThongKe();
       // --- Thanh thư mục ---
       var thanh = document.getElementById("dsMuc");
       thanh.innerHTML = "";
@@ -2143,9 +2307,12 @@
       if (dung) {
         diem++;
         ketQua.textContent = "✓ Chính xác! / Верно!";
+        ghiThongKe(true, 1);
+        luu();
       } else {
         ketQua.textContent = "✗ Chưa đúng / Неверно — đáp án: " + cauHienTai[truongDapAn()];
         cauHienTai.thuoc = false; // trả lời sai thì từ này quay về "đang học"
+        ghiThongKe(false, 1);
         luu();
         hienThi();
       }
@@ -2238,7 +2405,7 @@
 
     // Sao lưu toàn bộ thư viện (mọi học phần + thư mục + thẻ phân loại)
     document.getElementById("sao").onclick = function () {
-      var goi = { phienBan: 2, thuVien: thuVien, thuMuc: thuMuc };
+      var goi = { phienBan: 2, thuVien: thuVien, thuMuc: thuMuc, thongKe: thongKe };
       var ngay = new Date().toISOString().slice(0, 10);
       taiXuong(JSON.stringify(goi, null, 2), "thu-vien-tu-vung-nga-" + ngay + ".json");
     };
@@ -2272,6 +2439,7 @@
         soHP++;
         soTu += tu.length;
       });
+      if (goi.thongKe) gopThongKe(goi.thongKe);
       luu();
       hienThi();
       return { soHP: soHP, soTu: soTu };
@@ -2341,6 +2509,13 @@
         e.target.value = "";
       };
       docTep.readAsText(tep, "UTF-8");
+    };
+
+    document.getElementById("tkMucTieu").onchange = function () {
+      var v = parseInt(this.value, 10);
+      if (!(v >= 1 && v <= 1000)) { this.value = thongKe.mucTieu; return; }
+      thongKe.mucTieu = v;
+      luu();
     };
 
     // ===== ĐỒNG BỘ QUA GITHUB GIST =====
@@ -2425,12 +2600,13 @@
       thuVien = xa.thuVien;
       thuVien.forEach(function (hp) { hp.tu = lamSach(hp.tu); });
       thuMuc = Array.isArray(xa.thuMuc) ? xa.thuMuc : [];
+      if (xa.thongKe) thongKe = chuanThongKe(xa.thongKe);
       hienTai = 0;
       chuanHoaDuLieu();
       danhSach = thuVien[0].tu;
       nguonVong = null; viTri = 0; dangLat = false; hienGoiY = false; lichSu = null;
       daChonHP.clear(); daChon.clear(); cheDoChonHP = false; locMuc = "tatca"; locTab = "tat";
-      suaLuc = Date.now();
+      suaLuc = Math.max(Date.now(), suaLuc + 1);
       dbGhiLocal();
       veThuVien();
       hienThi();
@@ -2439,6 +2615,7 @@
     // Gộp bản từ GitHub vào dữ liệu máy này (thư mục / học phần cùng tên thì nhập chung, từ trùng thì giữ trạng thái tốt hơn)
     function dbGop(xa) {
       var anhXa = {}, anhXaTab = {};
+      if (xa.thongKe) gopThongKe(xa.thongKe);
       (Array.isArray(xa.thuMuc) ? xa.thuMuc : []).forEach(function (m) {
         if (!m || m.ten === undefined || m.ten === null) return;
         var ten = String(m.ten);
@@ -2478,12 +2655,12 @@
     }
 
     // Đẩy dữ liệu máy này lên GitHub. loai: "tao" (tạo gist mới) | "day" | "gop" (đã gộp xong, đẩy bản gộp)
-    function dbDay(loai) {
-      var stamp = Date.now();
+    function dbDay(loai, remoteMoi) {
+      var stamp = Math.max(Date.now(), dbMeta.remoteStamp + 1, (remoteMoi || 0) + 1, suaLuc + 1);   // luôn tăng dần, tránh trùng mili giây
       if (loai === "gop") { suaLuc = stamp; dbGhiLocal(); veThuVien(); hienThi(); }
       var suaTruoc = suaLuc;
       var files = {};
-      files[DB_TEP] = { content: JSON.stringify({ phienBan: 2, capNhat: stamp, thuVien: thuVien, thuMuc: thuMuc }) };
+      files[DB_TEP] = { content: JSON.stringify({ phienBan: 2, capNhat: stamp, thuVien: thuVien, thuMuc: thuMuc, thongKe: thongKe }) };
       var tieuDe = { "Content-Type": "application/json" };
       var yc = dbMeta.gistId
         ? dbGoi("/gists/" + dbMeta.gistId, { method: "PATCH", headers: tieuDe, body: JSON.stringify({ files: files }) })
@@ -2504,12 +2681,12 @@
       if (!S) {                                   // lần đầu máy này nối với gist đã có sẵn
         if (dbLaMau()) return veMay();
         dbGop(xa);
-        return dbDay("gop");
+        return dbDay("gop", R);
       }
       if (!xaDoi) return maySua ? dbDay("day") : "khongDoi";
       if (!maySua) return veMay();                // máy kia có thay đổi, máy này không
       dbGop(xa);                                  // cả hai cùng đổi
-      return dbDay("gop");
+      return dbDay("gop", R);
     }
 
     function dongBo(thuCong) {
