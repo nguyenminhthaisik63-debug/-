@@ -104,7 +104,7 @@
     .hang { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
     .hop { background: #1d1745; border: 1px solid #2f2a63; border-radius: 18px; padding: 18px; margin-top: 20px; }
     .hop h2 { margin: 0 0 12px; font-size: 20px; }
-    input[type="text"], select { background: var(--nen); color: var(--chu); border: 2px solid var(--vien);
+    input[type="text"], input[type="password"], select { background: var(--nen); color: var(--chu); border: 2px solid var(--vien);
            border-radius: 10px; padding: 10px 12px; font-size: 16px; font-family: inherit; }
     .them { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
     .them input { min-width: 0; }
@@ -282,6 +282,29 @@
         <button id="nhapTV" class="nut">⬆ Nhập bản sao lưu</button>
       </div>
     </section>
+
+      <section class="hop" id="khuDongBo">
+        <h2>☁ Đồng bộ điện thoại ↔ máy tính</h2>
+        <p class="muted" id="dbTrangThai" aria-live="polite" style="margin:-4px 0 10px">Chưa bật đồng bộ.</p>
+        <div id="dbCaiDat">
+          <p class="muted" style="margin-top:0">Cài một lần trên mỗi thiết bị. Dữ liệu được lưu vào một «gist» bí mật trong tài khoản GitHub của bạn.</p>
+          <ol class="muted" style="padding-left:20px;margin:6px 0 12px">
+            <li>Bấm <a href="https://github.com/settings/tokens/new?scopes=gist&amp;description=Flashcard%20Nga" target="_blank" rel="noopener" style="color:var(--timNhat)">tạo token</a> (đăng nhập GitHub nếu được hỏi).</li>
+            <li>Ở mục <b>Expiration</b> chọn <b>No expiration</b>. Quyền <b>gist</b> đã được tích sẵn. Kéo xuống cuối, bấm <b>Generate token</b>.</li>
+            <li>Sao chép chuỗi bắt đầu bằng <b>ghp_</b> và dán vào ô dưới.</li>
+            <li>Làm tương tự trên thiết bị còn lại, dùng <b>cùng tài khoản GitHub</b>.</li>
+          </ol>
+          <div class="them" style="grid-template-columns:1fr auto">
+            <input type="password" id="dbToken" placeholder="Dán token (ghp_…)" aria-label="Token GitHub" autocomplete="off" spellcheck="false">
+            <button id="dbBat" class="nut tim">Bật đồng bộ</button>
+          </div>
+        </div>
+        <div id="dbDaBat" class="hang" style="display:none">
+          <button id="dbNgay" class="nut tim">🔄 Đồng bộ ngay</button>
+          <button id="dbTat" class="nut nguy">Tắt đồng bộ trên máy này</button>
+        </div>
+        <p class="muted" style="margin-bottom:0;font-size:13px">Token chỉ lưu trên thiết bị này. Khi cả hai máy cùng sửa lúc chưa kịp đồng bộ, app sẽ gộp hai bản lại, nên từ đã xóa ở một bên có thể xuất hiện lại.</p>
+      </section>
 
       <section class="hop" id="khuNhieu">
         <h2>📦 Nhập nhiều học phần cùng lúc / Массовый импорт</h2>
@@ -558,6 +581,7 @@
         cheDoChonHP = false;      // về thư viện: tắt chế độ chọn nhiều học phần
         daChonHP.clear();
         veThuVien();
+        dbHenDay(800);
       }
     }
 
@@ -638,6 +662,7 @@
     }
 
     // Chuẩn hóa id thư mục / thẻ phân loại thành CHUỖI ở mọi nơi, để so sánh không bị lệch kiểu số/chuỗi
+    function chuanHoaDuLieu() {
     thuMuc.forEach(function (m) {
       m.id = String(m.id);
       m.tabs = (Array.isArray(m.tabs) ? m.tabs : [])
@@ -653,13 +678,26 @@
       if (!mu || !mu.tabs.some(function (t) { return t.id === hp.tabId; })) hp.tabId = null;
     });
     if (hienTai >= thuVien.length || hienTai < 0) hienTai = 0;
+    }
+    chuanHoaDuLieu();
 
     var danhSach = thuVien[hienTai].tu; // các hàm bên dưới làm việc trên học phần đang mở
 
-    function luu() {
+    var suaLuc = 0;   // thời điểm nội dung (từ vựng, thư mục) được sửa lần cuối trên máy này
+    try { suaLuc = Number(localStorage.getItem("thuVienSua")) || 0; } catch (loi) {}
+    var dauVanCu = JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc });
+
+    function dbGhiLocal() {
+      dauVanCu = JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc });
       try {
         localStorage.setItem("thuVienNga", JSON.stringify({ thuVien: thuVien, hienTai: hienTai, thuMuc: thuMuc }));
+        localStorage.setItem("thuVienSua", String(suaLuc));
       } catch (loi) {}
+    }
+
+    function luu() {
+      if (JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc }) !== dauVanCu) { suaLuc = Date.now(); dbHenDay(); }
+      dbGhiLocal();
       veThuVien();
     }
 
@@ -2304,6 +2342,242 @@
       };
       docTep.readAsText(tep, "UTF-8");
     };
+
+    // ===== ĐỒNG BỘ QUA GITHUB GIST =====
+    // Mỗi thiết bị giữ token riêng; dữ liệu nằm trong một gist bí mật. Máy nào sửa sau thì đẩy lên, máy kia lấy về.
+    // Nếu cả hai cùng sửa lúc chưa đồng bộ thì gộp hai bản (hợp nhất từ, giữ trạng thái đã biết / gắn sao).
+    var DB_MOTA = "Flashcard Nga - dữ liệu đồng bộ (đừng xóa)";
+    var DB_TEP = "thu-vien-nga.json";
+    var dbMeta = { token: "", gistId: "", remoteStamp: 0, localStamp: 0, lanCuoi: 0 };
+    try {
+      var dbCu = JSON.parse(localStorage.getItem("dongBoNga") || "null");
+      if (dbCu && dbCu.token) dbMeta = Object.assign(dbMeta, dbCu);
+    } catch (loi) {}
+    var dbDangChay = false, dbCho = false, dbLoi = "", dbHen = null;
+
+    function dbLuuMeta() { try { localStorage.setItem("dongBoNga", JSON.stringify(dbMeta)); } catch (loi) {} }
+    function dbTrang(van) { var el = document.getElementById("dbTrangThai"); if (el) el.textContent = van; }
+    function dbGio(ms) {
+      var d = new Date(ms);
+      var homNay = new Date().toDateString() === d.toDateString();
+      return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) + (homNay ? "" : " ngày " + d.toLocaleDateString("vi-VN"));
+    }
+    function dbVeUI() {
+      var bat = !!dbMeta.token;
+      document.getElementById("dbCaiDat").style.display = bat ? "none" : "";
+      document.getElementById("dbDaBat").style.display = bat ? "flex" : "none";
+      if (!bat) dbTrang("Chưa bật đồng bộ.");
+      else if (dbLoi) dbTrang("⚠ " + dbLoi);
+      else dbTrang(dbMeta.lanCuoi ? "✓ Đã đồng bộ lúc " + dbGio(dbMeta.lanCuoi) : "Đã bật · chưa đồng bộ lần nào");
+    }
+
+    function dbGoi(duongDan, tuyChon) {
+      tuyChon = tuyChon || {};
+      tuyChon.headers = Object.assign({ "Authorization": "Bearer " + dbMeta.token, "Accept": "application/vnd.github+json" }, tuyChon.headers || {});
+      return fetch("https://api.github.com" + duongDan, tuyChon).then(function (r) {
+        if (r.status === 401) throw new Error("TOKEN");
+        if (r.status === 403 || r.status === 429) throw new Error("GIOIHAN");
+        if (r.status === 404) throw new Error("404");
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      });
+    }
+
+    function dbDichLoi(loi) {
+      var m = (loi && loi.message) || "";
+      if (m === "TOKEN") return "Token sai hoặc đã hết hạn. Hãy tạo token mới rồi bật lại đồng bộ.";
+      if (m === "GIOIHAN") return "GitHub từ chối: token thiếu quyền «gist» hoặc đang bị giới hạn lượt gọi.";
+      if (m === "HONG") return "Dữ liệu trên GitHub bị lỗi định dạng.";
+      if (loi instanceof TypeError) return "Không có mạng hoặc không kết nối được GitHub. Sẽ tự thử lại khi có mạng.";
+      return "Lỗi đồng bộ (" + m + ").";
+    }
+
+    function dbTimGist(trang) {
+      trang = trang || 1;
+      return dbGoi("/gists?per_page=100&page=" + trang).then(function (ds) {
+        var g = ds.filter(function (x) { return x.description === DB_MOTA && x.files && x.files[DB_TEP]; })[0];
+        if (g) return g.id;
+        if (ds.length === 100 && trang < 5) return dbTimGist(trang + 1);
+        return null;
+      });
+    }
+
+    function dbDocTep(gist) {
+      var f = gist.files && gist.files[DB_TEP];
+      if (!f) return Promise.reject(new Error("RONG"));
+      var p = f.truncated ? fetch(f.raw_url).then(function (r) { return r.text(); }) : Promise.resolve(f.content);
+      return p.then(function (t) {
+        var d;
+        try { d = JSON.parse(t); } catch (loi) { throw new Error("HONG"); }
+        if (!d || !Array.isArray(d.thuVien) || d.thuVien.length === 0) throw new Error("HONG");
+        return d;
+      });
+    }
+
+    function dbLaMau() {   // máy mới tinh, chỉ có 5 từ mẫu
+      if (thuMuc.length !== 0 || thuVien.length !== 1 || thuVien[0].ten !== "Từ cơ bản" || thuVien[0].tu.length !== 5) return false;
+      var mau = ["привет", "спасибо", "вода", "дом", "друг"];
+      return thuVien[0].tu.every(function (t, i) { return t.nga === mau[i]; });
+    }
+
+    // Thay toàn bộ dữ liệu máy này bằng bản từ GitHub
+    function dbAp(xa) {
+      thuVien = xa.thuVien;
+      thuVien.forEach(function (hp) { hp.tu = lamSach(hp.tu); });
+      thuMuc = Array.isArray(xa.thuMuc) ? xa.thuMuc : [];
+      hienTai = 0;
+      chuanHoaDuLieu();
+      danhSach = thuVien[0].tu;
+      nguonVong = null; viTri = 0; dangLat = false; hienGoiY = false; lichSu = null;
+      daChonHP.clear(); daChon.clear(); cheDoChonHP = false; locMuc = "tatca"; locTab = "tat";
+      suaLuc = Date.now();
+      dbGhiLocal();
+      veThuVien();
+      hienThi();
+    }
+
+    // Gộp bản từ GitHub vào dữ liệu máy này (thư mục / học phần cùng tên thì nhập chung, từ trùng thì giữ trạng thái tốt hơn)
+    function dbGop(xa) {
+      var anhXa = {}, anhXaTab = {};
+      (Array.isArray(xa.thuMuc) ? xa.thuMuc : []).forEach(function (m) {
+        if (!m || m.ten === undefined || m.ten === null) return;
+        var ten = String(m.ten);
+        var co = thuMuc.filter(function (x) { return x.ten === ten; })[0];
+        if (!co) { co = { id: taoId(), ten: ten, tabs: [] }; thuMuc.push(co); }
+        anhXa[String(m.id)] = co.id;
+        (Array.isArray(m.tabs) ? m.tabs : []).forEach(function (t) {
+          if (!t || t.ten === undefined || t.ten === null) return;
+          var tn = String(t.ten);
+          var ct = co.tabs.filter(function (x) { return x.ten === tn; })[0];
+          if (!ct) { ct = { id: taoId(), ten: tn }; co.tabs.push(ct); }
+          anhXaTab[String(m.id) + "|" + String(t.id)] = ct.id;
+        });
+      });
+      xa.thuVien.forEach(function (hp) {
+        if (!hp || !Array.isArray(hp.tu)) return;
+        var mucId = (hp.mucId !== undefined && hp.mucId !== null && anhXa[String(hp.mucId)]) || null;
+        var tabId = (mucId && hp.tabId !== undefined && hp.tabId !== null && anhXaTab[String(hp.mucId) + "|" + String(hp.tabId)]) || null;
+        var ten = String(hp.ten || "Học phần");
+        var tu = lamSach(hp.tu);
+        var co = thuVien.filter(function (x) { return x.ten === ten && x.mucId === mucId; })[0];
+        if (!co) { thuVien.push({ ten: ten, tu: tu, mucId: mucId, tabId: tabId }); return; }
+        var theoKhoa = Object.create(null);
+        co.tu.forEach(function (t) { theoKhoa[chuanHoa(t.nga)] = t; });
+        tu.forEach(function (t) {
+          var k = chuanHoa(t.nga), a = theoKhoa[k];
+          if (!a) { co.tu.push(t); theoKhoa[k] = t; return; }
+          if (t.thuoc) a.thuoc = true;
+          if (t.sao) a.sao = true;
+          if (t.loai && (!a.loai || (a.loaiDoan && !t.loaiDoan))) {
+            a.loai = t.loai;
+            if (t.loaiDoan) a.loaiDoan = true; else delete a.loaiDoan;
+          }
+        });
+        if (!co.tabId && tabId) co.tabId = tabId;
+      });
+    }
+
+    // Đẩy dữ liệu máy này lên GitHub. loai: "tao" (tạo gist mới) | "day" | "gop" (đã gộp xong, đẩy bản gộp)
+    function dbDay(loai) {
+      var stamp = Date.now();
+      if (loai === "gop") { suaLuc = stamp; dbGhiLocal(); veThuVien(); hienThi(); }
+      var suaTruoc = suaLuc;
+      var files = {};
+      files[DB_TEP] = { content: JSON.stringify({ phienBan: 2, capNhat: stamp, thuVien: thuVien, thuMuc: thuMuc }) };
+      var tieuDe = { "Content-Type": "application/json" };
+      var yc = dbMeta.gistId
+        ? dbGoi("/gists/" + dbMeta.gistId, { method: "PATCH", headers: tieuDe, body: JSON.stringify({ files: files }) })
+        : dbGoi("/gists", { method: "POST", headers: tieuDe, body: JSON.stringify({ description: DB_MOTA, public: false, files: files }) });
+      return yc.then(function (r) {
+        if (r && r.id) dbMeta.gistId = r.id;
+        dbMeta.remoteStamp = stamp;
+        dbMeta.localStamp = suaTruoc;   // nếu trong lúc đẩy lại có sửa thêm thì lần sau sẽ đẩy tiếp
+        dbLuuMeta();
+        return loai;
+      });
+    }
+
+    function dbQuyet(xa) {
+      var R = xa.capNhat || 0, S = dbMeta.remoteStamp;
+      var maySua = suaLuc > dbMeta.localStamp, xaDoi = R !== S;
+      function veMay() { dbAp(xa); dbMeta.remoteStamp = R; dbMeta.localStamp = suaLuc; dbLuuMeta(); return "keVe"; }
+      if (!S) {                                   // lần đầu máy này nối với gist đã có sẵn
+        if (dbLaMau()) return veMay();
+        dbGop(xa);
+        return dbDay("gop");
+      }
+      if (!xaDoi) return maySua ? dbDay("day") : "khongDoi";
+      if (!maySua) return veMay();                // máy kia có thay đổi, máy này không
+      dbGop(xa);                                  // cả hai cùng đổi
+      return dbDay("gop");
+    }
+
+    function dongBo(thuCong) {
+      if (!dbMeta.token) return Promise.resolve();
+      if (dbDangChay) { dbCho = true; return Promise.resolve(); }
+      dbDangChay = true;
+      dbCho = false;
+      dbTrang("⏳ Đang đồng bộ…");
+      var buoc = dbMeta.gistId ? Promise.resolve(dbMeta.gistId) : dbTimGist();
+      return buoc.then(function (id) {
+        if (!id) return dbDay("tao");
+        dbMeta.gistId = id;
+        return dbGoi("/gists/" + id).then(dbDocTep).then(dbQuyet);
+      }).then(function (kq) {
+        dbMeta.lanCuoi = Date.now();
+        dbLuuMeta();
+        dbLoi = "";
+        if (kq === "keVe") thongBao("☁ Đã lấy dữ liệu mới từ thiết bị kia");
+        else if (kq === "gop") thongBao("☁ Đã gộp dữ liệu hai thiết bị và đồng bộ");
+        else if (thuCong) thongBao("☁ Đã đồng bộ");
+      }).catch(function (loi) {
+        var m = loi && loi.message;
+        if ((m === "404" || m === "RONG") && dbMeta.gistId) {   // gist bị xóa: tạo lại từ dữ liệu máy này
+          dbMeta.gistId = ""; dbMeta.remoteStamp = 0; dbMeta.localStamp = 0; dbLuuMeta(); dbCho = true;
+          return;
+        }
+        dbLoi = dbDichLoi(loi);
+        if (thuCong) thongBao("⚠ " + dbLoi);
+      }).then(function () {
+        dbDangChay = false;
+        dbVeUI();
+        if (dbCho) { dbCho = false; dongBo(false); }
+      });
+    }
+
+    function dbHenDay(ms) {
+      if (!dbMeta.token) return;
+      clearTimeout(dbHen);
+      dbHen = setTimeout(function () { dbHen = null; dongBo(false); }, ms === undefined ? 4000 : ms);
+    }
+
+    document.getElementById("dbBat").onclick = function () {
+      var tk = document.getElementById("dbToken").value.trim();
+      if (!tk) { thongBao("Hãy dán token vào ô trước."); return; }
+      dbMeta = { token: tk, gistId: "", remoteStamp: 0, localStamp: 0, lanCuoi: 0 };
+      dbLuuMeta();
+      document.getElementById("dbToken").value = "";
+      dbLoi = "";
+      dbVeUI();
+      dongBo(true);
+    };
+    document.getElementById("dbNgay").onclick = function () { dbLoi = ""; dongBo(true); };
+    document.getElementById("dbTat").onclick = function () {
+      if (!confirm("Tắt đồng bộ trên máy này?\n\nDữ liệu trên máy vẫn được giữ, và bản trên GitHub không bị xóa.")) return;
+      dbMeta = { token: "", gistId: "", remoteStamp: 0, localStamp: 0, lanCuoi: 0 };
+      try { localStorage.removeItem("dongBoNga"); } catch (loi) {}
+      dbLoi = "";
+      dbVeUI();
+    };
+    window.addEventListener("online", function () { dbHenDay(500); });
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) {                       // rời app: đẩy ngay những gì đang chờ
+        if (dbHen) { clearTimeout(dbHen); dbHen = null; dongBo(false); }
+      } else if (manHinh === "thuvien") {           // quay lại app: lấy thay đổi từ máy kia (chỉ ở màn thư viện để khỏi ngắt lúc đang học)
+        dbHenDay(500);
+      }
+    });
+    dbVeUI();
 
     // ===== BẢNG PHÍM TẮT: ẩn / hiện =====
     var bangPhimAn = false;
