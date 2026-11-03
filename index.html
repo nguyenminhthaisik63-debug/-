@@ -2,8 +2,15 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#120a2e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Thẻ Nga">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-512.png">
   <title>Thẻ từ vựng tiếng Nga</title>
   <style>
     :root {
@@ -218,6 +225,24 @@
     #khuHoc:fullscreen .khungThe { height: clamp(300px, 62vh, 760px); }
     #khuHoc:-webkit-full-screen .khungThe { height: clamp(300px, 62vh, 760px); }
 
+    /* ----- Vuốt thẻ (điện thoại) ----- */
+    #card { touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
+    #card.keoPhai .mat { border-color: var(--luc); }
+    #card.keoTrai .mat { border-color: var(--do); }
+    .camUng { display: none; }
+    @media (pointer: coarse) { .camUng { display: inline; } .phimTatBang { display: none; } }
+
+    /* ----- Thanh tab dưới cùng ----- */
+    #thanhTab { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: #1d1745;
+                border-top: 1px solid #2f2a63; padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)); gap: 2px; }
+    #thanhTab button { flex: 1; min-width: 0; background: none; border: 0; border-radius: 12px; padding: 6px 2px;
+                       color: var(--phu); font-size: 11px; font-weight: 600; display: flex; flex-direction: column;
+                       align-items: center; gap: 2px; }
+    #thanhTab button span { font-size: 22px; line-height: 1.1; }
+    #thanhTab button[aria-current="page"] { color: #fff; background: var(--tim); }
+    #viewHoc { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+    #thongBao, #thongBaoTab { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+
     @media (prefers-reduced-motion: reduce) { #card, .cong, .cong::after, .thongBao { transition: none; } }
   </style>
 </head>
@@ -304,7 +329,7 @@
   </div>
 
   <div id="viewHoc">
-  <div id="khuHoc">
+  <div id="khuHoc" data-tab="hoc">
   <header class="top">
     <div class="trai"><button id="btnVe" class="vien" aria-label="Về thư viện">← Thư viện</button></div>
     <div class="giua">
@@ -339,7 +364,7 @@
       <button id="nghe" class="goc phai" aria-label="Nghe phát âm tiếng Nga (phím A)" title="Âm thanh (A)">🔊</button>
       <button id="btnSao" class="goc sao" aria-label="Gắn sao (phím S)" title="Gắn sao (S)">☆</button>
       <button id="btnSua" class="goc sua" aria-label="Sửa thẻ (phím E)" title="Sửa (E)">✏</button>
-      <div class="phimTat"><span class="maytinh">⌨ <b>Phím tắt</b> Nhấn <kbd>phím cách</kbd> hoặc </span>nhấp vào thẻ để lật</div>
+      <div class="phimTat"><span class="maytinh">⌨ <b>Phím tắt</b> Nhấn <kbd>phím cách</kbd> hoặc </span>nhấp vào thẻ để lật<span class="camUng"> · vuốt phải: đã biết, trái: đang học</span></div>
     </div>
 
     <div class="duoi">
@@ -367,7 +392,7 @@
 
   <main class="manHinh">
 
-    <section class="phimTatBang">
+    <section class="phimTatBang" data-tab="hoc">
       <div class="dau">
         <h2>Phím tắt bàn phím / Горячие клавиши</h2>
         <button id="anHien" class="anHien" aria-expanded="true">Ẩn ⌃</button>
@@ -391,7 +416,7 @@
       </div>
     </section>
 
-    <section class="hop">
+    <section class="hop" data-tab="caidat">
       <h2>⚙ Học phần này / Этот набор</h2>
       <div class="hang">
         <button id="doiTen" class="nut">✏ Đổi tên</button>
@@ -401,7 +426,7 @@
       <p>Thẻ phân loại / Вкладка: <select id="chonTab"></select></p>
     </section>
 
-    <section class="hop">
+    <section class="hop" data-tab="them">
       <h2>Thêm từ mới / Добавить слово</h2>
       <div class="them">
         <input type="text" id="oNga" placeholder="Tiếng Nga" lang="ru" autocomplete="off">
@@ -411,7 +436,7 @@
     </section>
 
     <!-- ===== NHẬP HÀNG LOẠT (giống Quizlet) ===== -->
-    <section class="hop" id="khuNhap">
+    <section class="hop" id="khuNhap" data-tab="them">
       <h2>📥 Nhập dữ liệu / Импорт</h2>
       <p class="muted" style="margin-top:-4px">
         Chép và dán dữ liệu ở đây (từ Word, Excel, Google Docs, Quizlet…). Nếu một dòng không có dấu tách đã chọn,
@@ -456,7 +481,7 @@
       </div>
     </section>
 
-    <section class="hop">
+    <section class="hop" data-tab="quiz">
       <h2>🎯 Trắc nghiệm / Тест</h2>
       <div class="chonQuiz">
         <label>Chiều
@@ -488,7 +513,7 @@
       </div>
     </section>
 
-    <section class="hop">
+    <section class="hop" data-tab="caidat">
       <h2>Tệp / Файл</h2>
       <div class="hang">
         <button id="xuat" class="nut">⬇ Xuất học phần này</button>
@@ -504,15 +529,27 @@
   </main>
   </div>
 
+  <nav id="thanhTab" aria-label="Điều hướng">
+    <button data-vao="thuvien"><span>📚</span>Thư viện</button>
+    <button data-vao="hoc"><span>🃏</span>Học</button>
+    <button data-vao="them"><span>➕</span>Thêm từ</button>
+    <button data-vao="quiz"><span>🎯</span>Trắc nghiệm</button>
+    <button data-vao="caidat"><span>⚙</span>Cài đặt</button>
+  </nav>
+  <div class="thongBao" id="thongBaoTab" role="status" aria-live="polite"></div>
+
   <input type="file" id="chonTep" accept=".json,.txt,.csv" style="display:none">
 
   <script>
     // ===== HAI MÀN HÌNH: thư viện / học =====
     var manHinh = "thuvien";
+    var tabHoc = "hoc";   // tab đang mở trong màn hình học: hoc | them | quiz | caidat
     function hienManHinh(ten) {
       manHinh = ten;
       document.getElementById("viewThuVien").style.display = ten === "thuvien" ? "" : "none";
       document.getElementById("viewHoc").style.display = ten === "hoc" ? "" : "none";
+      document.getElementById("thanhTab").style.display = ten === "hoc" ? "flex" : "none";
+      if (ten === "hoc") chonTab(tabHoc);
       if (ten === "thuvien") {
         document.getElementById("manThuVien").style.display = "";
         document.getElementById("manTuDien").style.display = "none";
@@ -524,12 +561,25 @@
       }
     }
 
+    // Chuyển tab trong màn hình học (hoc / them / quiz / caidat) hoặc về thư viện
+    function chonTab(ten) {
+      if (ten === "thuvien") { hienManHinh("thuvien"); window.scrollTo({ top: 0 }); return; }
+      tabHoc = ten;
+      document.querySelectorAll("#viewHoc [data-tab]").forEach(function (el) {
+        el.style.display = el.dataset.tab === ten ? "" : "none";
+      });
+      document.querySelectorAll("#thanhTab button").forEach(function (b) {
+        if (b.dataset.vao === ten) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+      });
+      window.scrollTo({ top: 0 });
+    }
+
     // ===== TIỆN ÍCH =====
     function taoId() { return "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
     var henGio = null;
     function thongBao(noiDung) {
-      var el = document.getElementById(manHinh === "thuvien" ? "thongBaoTV" : "thongBao");
+      var el = document.getElementById(manHinh === "thuvien" ? "thongBaoTV" : (tabHoc === "hoc" ? "thongBao" : "thongBaoTab"));
       el.textContent = noiDung;
       el.classList.add("hien");
       clearTimeout(henGio);
@@ -803,8 +853,9 @@
       }
     }
 
+    var vuaVuot = false;   // vừa vuốt xong thì bỏ qua cú chạm để thẻ không bị lật nhầm
     the.onclick = function () {
-      if (danhSach.length === 0) return;
+      if (vuaVuot || danhSach.length === 0) return;
       dangLat = !dangLat;
       hienThi();
     };
@@ -815,6 +866,46 @@
     document.getElementById("hoanTac").onclick = hoanTac;
     document.getElementById("btnLen").onclick = function () { the.click(); };   // nút ↑ lật thẻ
     document.getElementById("btnXuong").onclick = function () { the.click(); }; // nút ↓ lật thẻ
+
+    // ===== VUỐT THẺ: phải = đã biết, trái = đang học =====
+    (function () {
+      var NGUONG = 80, x0 = 0, y0 = 0, dx = 0, keo = false, huy = false;
+      function xoaKeo() {
+        the.style.transition = "";
+        the.style.transform = "";
+        the.classList.remove("keoPhai", "keoTrai");
+      }
+      the.addEventListener("touchstart", function (e) {
+        huy = e.touches.length !== 1 || danhSach.length === 0 || xongHet();
+        keo = false; dx = 0;
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+      }, { passive: true });
+      the.addEventListener("touchmove", function (e) {
+        if (huy) return;
+        dx = e.touches[0].clientX - x0;
+        var dy = e.touches[0].clientY - y0;
+        if (!keo) {
+          if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) { huy = true; return; } // đang cuộn dọc
+          if (Math.abs(dx) < 10) return;
+          keo = true;
+        }
+        the.style.transition = "none";
+        the.style.transform = "translateX(" + dx + "px) rotate(" + (dx / 25) + "deg)" + (dangLat ? " rotateY(180deg)" : "");
+        the.classList.toggle("keoPhai", dx > NGUONG / 2);
+        the.classList.toggle("keoTrai", dx < -NGUONG / 2);
+      }, { passive: true });
+      function ketThuc(e) {
+        var daKeo = keo, kq = dx;
+        keo = false; huy = false; dx = 0;
+        if (!daKeo) return;
+        xoaKeo();
+        vuaVuot = true;
+        setTimeout(function () { vuaVuot = false; }, 350);
+        if (e.type === "touchend" && Math.abs(kq) >= NGUONG) danhDau(kq > 0);
+      }
+      the.addEventListener("touchend", ketThuc);
+      the.addEventListener("touchcancel", ketThuc);
+    })();
 
     document.getElementById("btnGoiY").onclick = function () {
       hienGoiY = !hienGoiY;
@@ -960,8 +1051,7 @@
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       var tag = e.target.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
-      if (manHinh !== "hoc") return;
-      if (khungQuiz.style.display === "block") return;
+      if (manHinh !== "hoc" || tabHoc !== "hoc") return;
 
       // Dùng e.code (vị trí phím) nên chạy cả khi bàn phím đang ở chế độ tiếng Nga hoặc tiếng Việt
       var phim = e.code;
@@ -1264,6 +1354,7 @@
       khungQuiz.style.display = "none";
       luu();
       hienThi();
+      tabHoc = "hoc";
       hienManHinh("hoc");
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -2238,6 +2329,18 @@
     capNhatXem();
     capNhatXemNhieu();
     hienManHinh("thuvien"); // mở app: chỉ thấy thư viện và thư mục
+
+    document.getElementById("thanhTab").addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (b) chonTab(b.dataset.vao);
+    });
+
+    // Cho phép dùng khi không có mạng (chỉ chạy khi mở từ địa chỉ web thật, ví dụ GitHub Pages)
+    if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+      window.addEventListener("load", function () {
+        try { navigator.serviceWorker.register("sw.js").catch(function () {}); } catch (loi) {}
+      });
+    }
   </script>
 </body>
 </html>
