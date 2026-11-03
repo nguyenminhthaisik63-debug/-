@@ -267,15 +267,15 @@
       </div>
     <section class="hop" id="khuThongKe">
       <h2>📊 Thống kê học tập</h2>
-      <div class="tongSo" id="tkO" style="margin-top:0" aria-label="Chuỗi ngày và số thẻ đã ôn"></div>
+      <div class="tongSo" id="tkO" style="margin-top:0" aria-label="Chuỗi ngày và số từ đã biết"></div>
       <div class="tkThanh" role="progressbar" aria-label="Tiến độ mục tiêu hôm nay" aria-valuemin="0" aria-valuemax="100" id="tkThanh"><i id="tkThanhIn"></i></div>
       <p class="muted" id="tkChu" style="margin:0 0 4px"></p>
-      <div class="tkBieuDo" id="tkBieuDo" role="img" aria-label="Số thẻ đã ôn trong 7 ngày gần nhất"></div>
+      <div class="tkBieuDo" id="tkBieuDo" role="img" aria-label="Số từ đã biết trong 7 ngày gần nhất"></div>
       <div class="hang" style="align-items:center">
-        <label for="tkMucTieu" class="muted">Mục tiêu mỗi ngày (số thẻ):</label>
+        <label for="tkMucTieu" class="muted">Mục tiêu mỗi ngày (số từ đã biết):</label>
         <input type="number" id="tkMucTieu" min="1" max="1000" inputmode="numeric" style="width:100px">
       </div>
-      <p class="muted" style="margin:0;font-size:13px">Mỗi lần bạn bấm ✓ / ✕ (khi bật «Theo dõi tiến độ») hoặc trả lời một câu trắc nghiệm được tính là 1 thẻ. Ngày có ít nhất 1 thẻ được tính vào chuỗi ngày liên tiếp.</p>
+      <p class="muted" style="margin:0;font-size:13px">Chỉ tính các từ bạn vuốt phải (✓ đã biết, khi bật «Theo dõi tiến độ») hoặc trả lời đúng trong trắc nghiệm. Vuốt trái (✕) không được tính. Ngày có ít nhất 1 từ đã biết được tính vào chuỗi ngày liên tiếp.</p>
     </section>
 
     <section class="hop">
@@ -747,17 +747,17 @@
       buoc = buoc || 1;
       khoa = khoa || khoaNgay(new Date());
       var o = thongKe.ngay[khoa] || (thongKe.ngay[khoa] = { on: 0, biet: 0 });
-      var truoc = o.on;
+      var truoc = o.biet;   // mục tiêu và chuỗi chỉ tính các từ ĐÃ BIẾT (vuốt phải / trả lời đúng)
       o.on = Math.max(0, o.on + buoc);
       if (biet) o.biet = Math.max(0, o.biet + buoc);
       if (o.on === 0 && o.biet === 0) delete thongKe.ngay[khoa];
-      if (buoc > 0 && truoc < thongKe.mucTieu && o.on >= thongKe.mucTieu) {
-        setTimeout(function () { thongBao("🎉 Đạt mục tiêu hôm nay: " + o.on + " thẻ!"); }, 0);
+      if (buoc > 0 && biet && truoc < thongKe.mucTieu && o.biet >= thongKe.mucTieu) {
+        setTimeout(function () { thongBao("🎉 Đạt mục tiêu hôm nay: " + o.biet + " từ đã biết!"); }, 0);
       }
       return khoa;
     }
 
-    function coHoc(d) { var o = thongKe.ngay[khoaNgay(d)]; return !!o && o.on > 0; }
+    function coHoc(d) { var o = thongKe.ngay[khoaNgay(d)]; return !!o && o.biet > 0; }
 
     // Chuỗi ngày hiện tại (chưa học hôm nay thì vẫn tính tới hôm qua)
     function tinhChuoi() {
@@ -770,7 +770,7 @@
     }
 
     function chuoiDaiNhat() {
-      var ks = Object.keys(thongKe.ngay).filter(function (k) { return thongKe.ngay[k].on > 0; }).sort();
+      var ks = Object.keys(thongKe.ngay).filter(function (k) { return thongKe.ngay[k].biet > 0; }).sort();
       var best = 0, run = 0, truoc = null;
       ks.forEach(function (k) {
         var p = k.split("-"), d = new Date(+p[0], +p[1] - 1, +p[2], 12);
@@ -782,21 +782,21 @@
     }
 
     function capNhatDongMucTieu() {
-      var o = thongKe.ngay[khoaNgay(new Date())], n = o ? o.on : 0, c = tinhChuoi();
-      document.getElementById("nhanMucTieu").textContent = "🎯 Hôm nay " + n + "/" + thongKe.mucTieu +
+      var o = thongKe.ngay[khoaNgay(new Date())], n = o ? o.biet : 0, c = tinhChuoi();
+      document.getElementById("nhanMucTieu").textContent = "🎯 Hôm nay " + n + "/" + thongKe.mucTieu + " từ đã biết" +
         (n >= thongKe.mucTieu ? " ✓" : "") + (c > 0 ? " · 🔥 " + c + " ngày liên tiếp" : "");
     }
 
     function veThongKe() {
-      var hn = new Date(), o = thongKe.ngay[khoaNgay(hn)], n = o ? o.on : 0, mt = thongKe.mucTieu;
+      var hn = new Date(), o = thongKe.ngay[khoaNgay(hn)], n = o ? o.biet : 0, mt = thongKe.mucTieu;
       var chuoi = tinhChuoi(), tong = 0;
-      Object.keys(thongKe.ngay).forEach(function (k) { tong += thongKe.ngay[k].on; });
+      Object.keys(thongKe.ngay).forEach(function (k) { tong += thongKe.ngay[k].biet; });
 
       // 7 ngày gần nhất (cũ → mới)
       var ngay7 = [], tong7 = 0, lonNhat = mt;
       for (var i = 6; i >= 0; i--) {
         var d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i);
-        var oo = thongKe.ngay[khoaNgay(d)], v = oo ? oo.on : 0;
+        var oo = thongKe.ngay[khoaNgay(d)], v = oo ? oo.biet : 0;
         ngay7.push({ d: d, v: v, nay: i === 0 });
         tong7 += v;
         if (v > lonNhat) lonNhat = v;
@@ -805,7 +805,7 @@
       var vung = document.getElementById("tkO");
       vung.innerHTML = "";
       [["🔥 Chuỗi hiện tại", chuoi + " ngày", chuoi > 0], ["🏆 Kỷ lục", chuoiDaiNhat() + " ngày"],
-       ["Hôm nay", n + " / " + mt], ["7 ngày qua", tong7 + " thẻ"], ["Tổng đã ôn", tong + " thẻ"]].forEach(function (x) {
+       ["Hôm nay", n + " / " + mt], ["7 ngày qua", tong7 + " từ"], ["Tổng từ đã biết", tong + " từ"]].forEach(function (x) {
         var el = document.createElement("div");
         el.className = "oSo" + (x[2] ? " chinh" : "");
         var b = document.createElement("b"); b.textContent = x[1];
@@ -818,8 +818,8 @@
       document.getElementById("tkThanhIn").style.width = pt + "%";
       document.getElementById("tkThanh").setAttribute("aria-valuenow", pt);
       document.getElementById("tkChu").textContent = n >= mt
-        ? "🎉 Đã đạt mục tiêu hôm nay (" + n + " / " + mt + " thẻ)"
-        : "Còn " + (mt - n) + " thẻ nữa để đạt mục tiêu hôm nay";
+        ? "🎉 Đã đạt mục tiêu hôm nay (" + n + " / " + mt + " từ)"
+        : "Còn " + (mt - n) + " từ đã biết nữa để đạt mục tiêu hôm nay";
 
       var bd = document.getElementById("tkBieuDo");
       bd.innerHTML = "";
@@ -873,6 +873,7 @@
     var vongSo = 1;             // đang ở vòng thứ mấy
     var poolVong = new Set();   // các thẻ phải đi qua trong vòng này
     var daQuaVong = new Set();  // các thẻ đã đi qua trong vòng này
+    var quyetVong = new Map();  // thẻ → true (vuốt phải: đã biết) hoặc false (vuốt trái: đang học), tính trong vòng này
     var nguonVong = null;       // vòng này thuộc học phần nào
 
     var the = document.getElementById("card");
@@ -904,6 +905,7 @@
     function batDauVong() {
       poolVong = new Set(danhSach.filter(theHopLe));
       daQuaVong = new Set();
+      quyetVong = new Map();
     }
 
     // Đã thuộc hết các thẻ đang học?
@@ -938,6 +940,7 @@
       } else {                                  // bỏ khỏi vòng những thẻ vừa bị xóa
         var con = new Set(danhSach);
         poolVong.forEach(function (t) { if (!con.has(t)) { poolVong.delete(t); daQuaVong.delete(t); } });
+        quyetVong.forEach(function (v, t) { if (!con.has(t)) quyetVong.delete(t); });
       }
 
       document.getElementById("huong").textContent = chieu === "nga" ? "Nga → Việt" : "Việt → Nga";
@@ -949,8 +952,11 @@
         : "Mặt trước: nghĩa tiếng Việt · bạn đoán từ tiếng Nga (phím T)";
 
       var soThuoc = danhSach.filter(function (t) { return t.thuoc; }).length;
-      document.getElementById("soDaBiet").textContent = soThuoc;
-      document.getElementById("soDangHoc").textContent = danhSach.length - soThuoc;
+      // Hai bộ đếm trên cùng tính theo vòng hiện tại: vuốt phải → «Đã biết» +1, vuốt trái → «Đang học» +1
+      var dBiet = 0, dHoc = 0;
+      quyetVong.forEach(function (v) { if (v) dBiet++; else dHoc++; });
+      document.getElementById("soDaBiet").textContent = dBiet;
+      document.getElementById("soDangHoc").textContent = dHoc;
 
       var nutChua = document.getElementById("btnChiChua");
       nutChua.textContent = "🎯 Chỉ học từ chưa thuộc (" + (danhSach.length - soThuoc) + ")";
@@ -1027,7 +1033,8 @@
         return;
       }
       var tu = danhSach[viTri];
-      lichSu = { hocPhan: hienTai, chiSo: viTri, cu: tu.thuoc };
+      lichSu = { hocPhan: hienTai, chiSo: viTri, cu: tu.thuoc, coQuyet: quyetVong.has(tu), quyetCu: quyetVong.get(tu) };
+      quyetVong.set(tu, giaTri);
       if (document.getElementById("theoDoi").checked) {
         tu.thuoc = giaTri;
         lichSu.ngay = ghiThongKe(giaTri, 1);   // tính 1 thẻ đã ôn
@@ -1041,6 +1048,7 @@
       if (lichSu && lichSu.hocPhan === hienTai && danhSach[lichSu.chiSo]) {
         var tu = danhSach[lichSu.chiSo];
         tu.thuoc = lichSu.cu;
+        if (lichSu.coQuyet) quyetVong.set(tu, lichSu.quyetCu); else quyetVong.delete(tu);   // trả bộ đếm về như trước
         if (lichSu.ngay) ghiThongKe(lichSu.biet, -1, lichSu.ngay);   // hoàn tác thì trừ lại
         daQuaVong.delete(tu); // thẻ được hoàn tác thì chưa tính là "đã qua"
         viTri = lichSu.chiSo;
