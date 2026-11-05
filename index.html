@@ -248,6 +248,18 @@
     .khungThe.khongLoa .goc.sua { right: 66px; }
     @media (max-width: 420px) { .khungThe.khongLoa .goc.sao { right: 8px; } .khungThe.khongLoa .goc.sua { right: 54px; } }
 
+    /* ----- Dấu nhấn ----- */
+    .phuNhan { position: fixed; inset: 0; background: rgba(10,6,30,.82); z-index: 60; display: none; align-items: center;
+               justify-content: center; padding: 16px; }
+    .hopNhanTrong { background: #1d1745; border: 1px solid #2f2a63; border-radius: 18px; padding: 18px; width: 100%;
+                    max-width: 560px; max-height: 90vh; overflow: auto; }
+    .hopNhanTrong h2 { margin: 0 0 6px; font-size: 20px; }
+    .nhanChuCai { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 14px 0; }
+    .nhanCC { min-width: 38px; height: 54px; padding: 0 4px; border-radius: 10px; font-size: 30px; line-height: 54px;
+              text-align: center; background: transparent; border: 2px solid transparent; color: var(--chu); font-family: inherit; }
+    button.nhanCC.nguyen { background: var(--the); border-color: var(--vien); cursor: pointer; }
+    button.nhanCC.chon { background: var(--tim); border-color: var(--timNhat); }
+
     /* ----- Thanh tab dưới cùng ----- */
     #thanhTab { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: #1d1745;
                 border-top: 1px solid #2f2a63; padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)); gap: 2px; }
@@ -451,6 +463,7 @@
     <div class="hang" style="justify-content:center">
       <button id="btnChiChua" class="nut" aria-pressed="false">🎯 Chỉ học từ chưa thuộc (0)</button>
       <button id="btnDatLai" class="nut">🔄 Đặt lại học phần</button>
+      <button id="btnNhan" class="nut">´ Dấu nhấn</button>
       <button id="xoa" class="nut nguy">🗑 Xóa thẻ này</button>
     </div>
   </div>
@@ -497,7 +510,7 @@
     <section class="hop" data-tab="them">
       <h2>Thêm từ mới / Добавить слово</h2>
       <div class="them">
-        <input type="text" id="oNga" placeholder="Tiếng Nga" lang="ru" autocomplete="off">
+        <input type="text" id="oNga" placeholder="Tiếng Nga (gõ вода' để đặt dấu nhấn)" lang="ru" autocomplete="off">
         <input type="text" id="oViet" placeholder="Nghĩa tiếng Việt" autocomplete="off">
         <button id="them" class="nut tim">Thêm</button>
       </div>
@@ -582,6 +595,16 @@
     </section>
 
     <section class="hop" data-tab="caidat">
+      <h2>´ Dấu nhấn / Ударение</h2>
+      <p class="muted" style="margin-top:-4px">Tra tự động từ Wiktionary (cần mạng) cho các từ của học phần đang mở chưa có dấu nhấn. App chỉ ghi khi tìm thấy đúng một cách nhấn. Từ có nhiều cách nhấn hoặc không tìm thấy sẽ được bỏ qua để bạn tự đặt bằng nút «´ Dấu nhấn» dưới thẻ. Từ chỉ có một nguyên âm hoặc có chữ ё không cần đánh dấu.</p>
+      <div class="hang">
+        <button id="nhanHang" class="nut tim">🔎 Tìm dấu nhấn cho học phần này</button>
+        <button id="nhanDung" class="nut" style="display:none">⏹ Dừng</button>
+      </div>
+      <p class="muted" id="nhanTienDo" aria-live="polite" style="margin-bottom:0"></p>
+    </section>
+
+    <section class="hop" data-tab="caidat">
       <h2>Tệp / Файл</h2>
       <div class="hang">
         <button id="xuat" class="nut">⬇ Xuất học phần này</button>
@@ -605,6 +628,24 @@
     <button data-vao="caidat"><span>⚙</span>Cài đặt</button>
   </nav>
   <div class="thongBao" id="thongBaoTab" role="status" aria-live="polite"></div>
+
+  <div class="phuNhan" id="hopNhan" role="dialog" aria-modal="true" aria-labelledby="nhanTieuDe">
+    <div class="hopNhanTrong">
+      <h2 id="nhanTieuDe">´ Đặt dấu nhấn</h2>
+      <p class="muted" style="margin:0">Chạm vào nguyên âm được nhấn (chạm lại để bỏ).</p>
+      <div class="nhanChuCai" id="nhanChuCai" lang="ru" aria-label="Các chữ cái của từ"></div>
+      <p class="muted" id="nhanTrangThai" aria-live="polite" style="min-height:21px;margin:0 0 8px"></p>
+      <div class="hang" id="nhanDS"></div>
+      <div class="hang">
+        <button id="nhanTim" class="nut">🔎 Tìm tự động (cần mạng)</button>
+        <button id="nhanXoa" class="nut">Bỏ dấu nhấn</button>
+      </div>
+      <div class="hang" style="justify-content:flex-end">
+        <button id="nhanHuy" class="nut">Hủy</button>
+        <button id="nhanLuu" class="nut tim">Lưu</button>
+      </div>
+    </div>
+  </div>
 
   <input type="file" id="chonTep" accept=".json,.txt,.csv" style="display:none">
 
@@ -662,7 +703,8 @@
       var kq = [];
       (Array.isArray(mang) ? mang : []).forEach(function (t) {
         if (t && t.nga && t.viet) {
-          kq.push({ nga: String(t.nga), viet: String(t.viet), thuoc: !!t.thuoc, sao: !!t.sao,
+          var tn = tachNhan(t.nga), np = t.nhan ? tachNhan(t.nhan) : null;
+          kq.push({ nga: tn.nga, nhan: chuanNhan(tn.nga, (np && np.nhan) || tn.nhan), viet: String(t.viet), thuoc: !!t.thuoc, sao: !!t.sao,
                     loai: t.loai ? String(t.loai) : undefined, loaiDoan: t.loaiDoan ? true : undefined,
                     ob: Number.isFinite(t.ob) ? t.ob : undefined, han: Number.isFinite(t.han) ? t.han : undefined,
                     oc: Number.isFinite(t.oc) ? t.oc : undefined, dau: Number.isFinite(t.dau) ? t.dau : undefined });
@@ -1024,6 +1066,7 @@
     var khungQuiz = document.getElementById("khungQuiz");
 
     function taoGoiY(chu) {
+      chu = chu.replace(/\u0301/g, "");
       return chu.charAt(0) + " … (" + chu.length + " ký tự)";
     }
 
@@ -1145,8 +1188,8 @@
       }
 
       var tu = danhSach[viTri];
-      matTruoc.textContent = chieu === "nga" ? tu.nga : tu.viet;
-      matSau.textContent = chieu === "nga" ? tu.viet : tu.nga;
+      matTruoc.textContent = chieu === "nga" ? hienNga(tu) : tu.viet;
+      matSau.textContent = chieu === "nga" ? tu.viet : hienNga(tu);
       goiYChu.textContent = hienGoiY ? taoGoiY(matSau.textContent) : "";
       the.classList.remove("rong");
       the.classList.toggle("lat", dangLat);
@@ -1295,7 +1338,7 @@
     function suaThe() {
       if (danhSach.length === 0 || xongHet()) return;
       var tu = danhSach[viTri];
-      var nga = prompt("Tiếng Nga / По-русски:", tu.nga);
+      var nga = prompt("Tiếng Nga / По-русски (gõ ' ngay sau nguyên âm để đặt dấu nhấn, ví dụ вода'):", hienNga(tu));
       if (nga === null) return; // bấm Hủy thì thôi
       var viet = prompt("Nghĩa tiếng Việt / Значение:", tu.viet);
       if (viet === null) return;
@@ -1303,7 +1346,9 @@
         alert("Không được để trống!");
         return;
       }
-      tu.nga = nga.trim();
+      var tn = tachNhan(nga.trim());
+      tu.nga = tn.nga;
+      if (tn.nhan) tu.nhan = tn.nhan; else delete tu.nhan;
       tu.viet = viet.trim();
       luu();
       hienThi();
@@ -1438,6 +1483,7 @@
       var tag = e.target.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
       if (manHinh !== "hoc" || tabHoc !== "hoc") return;
+      if (document.getElementById("hopNhan").style.display === "flex") return;
 
       // Dùng e.code (vị trí phím) nên chạy cả khi bàn phím đang ở chế độ tiếng Nga hoặc tiếng Việt
       var phim = e.code;
@@ -1484,7 +1530,7 @@
         alert("Nhập đủ cả hai ô nhé!");
         return;
       }
-      danhSach.push({ nga: nga, viet: viet, thuoc: false });
+      danhSach.push(taoThe(nga, viet));
       document.getElementById("oNga").value = "";
       document.getElementById("oViet").value = "";
       viTri = danhSach.length - 1;
@@ -1936,7 +1982,7 @@
         var nga = s.slice(0, idx).trim();
         var viet = s.slice(idx + doDai).trim();
         if (nga === "" || viet === "") { kq.boQua++; return; }
-        kq.the.push({ nga: nga, viet: viet, thuoc: false });
+        kq.the.push(taoThe(nga, viet));
       });
       return kq;
     }
@@ -2171,7 +2217,7 @@
         }
         var r = document.createElement("button");
         r.className = "tdHang";
-        var a = document.createElement("span"); a.textContent = x.t.nga; a.lang = "ru";
+        var a = document.createElement("span"); a.textContent = hienNga(x.t); a.lang = "ru";
         var b = document.createElement("span"); b.textContent = x.t.viet;
         var c = document.createElement("small");
         c.textContent = [dem[x.k] > 1 ? "×" + dem[x.k] : "", nhanLoai(x.t), (x.t.thuoc ? "✓ " : "") + thuVien[x.hp].ten]
@@ -2328,7 +2374,7 @@
       }
       if (idx <= 0) return null;
       var nga = s.slice(0, idx).trim(), viet = s.slice(idx + doDai).trim();
-      return (nga && viet) ? { nga: nga, viet: viet, thuoc: false } : null;
+      return (nga && viet) ? taoThe(nga, viet) : null;
     }
 
     function phanTichNhieu(van) {
@@ -2438,7 +2484,7 @@
 
     // So sánh đáp án gõ: bỏ khác biệt hoa/thường, khoảng trắng thừa, ё/е
     function chuanHoa(s) {
-      return s.normalize("NFC").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
+      return s.normalize("NFC").replace(/\u0301/g, "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
     }
 
     function cauMoi() {
@@ -2455,7 +2501,7 @@
       cauHienTai = dung;
       daTraLoi = false;
       var hoi = document.getElementById("cauHoi");
-      hoi.textContent = huongCau === "nv" ? dung.nga : dung.viet;
+      hoi.textContent = huongCau === "nv" ? hienNga(dung) : dung.viet;
       hoi.lang = huongCau === "nv" ? "ru" : "vi";
 
       var vung = document.getElementById("dapAn");
@@ -2474,7 +2520,7 @@
         tron(luaChon).forEach(function (t) {
           var nut = document.createElement("button");
           nut.className = "dapAn";
-          nut.textContent = t[tr];
+          nut.textContent = tr === "nga" ? hienNga(t) : t[tr];
           nut.lang = tr === "nga" ? "ru" : "vi";
           nut._the = t;
           nut.onclick = function () { chonDapAn(nut, t); };
@@ -2505,7 +2551,7 @@
         ghiThongKe(true, 1);
         luu();
       } else {
-        ketQua.textContent = "✗ Chưa đúng / Неверно — đáp án: " + cauHienTai[truongDapAn()];
+        ketQua.textContent = "✗ Chưa đúng / Неверно — đáp án: " + (truongDapAn() === "nga" ? hienNga(cauHienTai) : cauHienTai[truongDapAn()]);
         cauHienTai.thuoc = false; // trả lời sai thì từ này quay về "đang học"
         capNhatSRS(cauHienTai, false);
         ghiThongKe(false, 1);
@@ -2689,7 +2735,7 @@
             van.split(/\r?\n/).forEach(function (dong) {
               var m = dong.match(/^(.+?)(?:\s[-–—]\s|\t|;|,)(.+)$/);
               if (m && m[1].trim() && m[2].trim()) {
-                themMoi.push({ nga: m[1].trim(), viet: m[2].trim(), thuoc: false });
+                themMoi.push(taoThe(m[1].trim(), m[2].trim()));
               }
             });
           }
@@ -2720,6 +2766,207 @@
       thongKe.mucTieu = v;
       luu();
     };
+
+    // ===== DẤU NHẤN (ударение) =====
+    // Mỗi từ có nga (không dấu, dùng để so khớp / sắp xếp / đọc) và nhan (có dấu nhấn, chỉ để hiển thị).
+    var RE_NGUYEN = /[аеёиоуыэюя]/i;
+
+    // Đổi cách gõ nháy sau nguyên âm (вода') thành dấu nhấn thật; tách thành dạng không dấu và có dấu
+    function tachNhan(chu) {
+      var t = String(chu).replace(/([аеёиоуыэюяАЕЁИОУЫЭЮЯ])['’´`ʼ]/g, "$1\u0301").normalize("NFC");
+      var khong = t.replace(/\u0301/g, "");
+      return { nga: khong, nhan: t !== khong ? t : undefined };
+    }
+    function chuanNhan(nga, nhan) {   // chỉ giữ dạng có dấu nếu đúng là cùng một từ
+      return (nhan && String(nhan).normalize("NFC").replace(/\u0301/g, "") === nga) ? String(nhan).normalize("NFC") : undefined;
+    }
+    function taoThe(nga, viet) {
+      var tn = tachNhan(nga), o = { nga: tn.nga, viet: viet, thuoc: false };
+      if (tn.nhan) o.nhan = tn.nhan;
+      return o;
+    }
+    function hienNga(t) { return t.nhan || t.nga; }
+
+    function viTriDau(chu) {   // vị trí các nguyên âm mang dấu nhấn (đếm theo chữ không dấu)
+      var kq = [], n = 0;
+      Array.prototype.forEach.call(String(chu).normalize("NFC"), function (ch) {
+        if (ch === "\u0301") { if (n > 0) kq.push(n - 1); } else n++;
+      });
+      return kq;
+    }
+    function datDau(nga, chiSo) {
+      var kq = "";
+      for (var i = 0; i < nga.length; i++) kq += nga.charAt(i) + (chiSo.indexOf(i) >= 0 ? "\u0301" : "");
+      return kq;
+    }
+    function giaiMa(x) {
+      return x.replace(/&#(\d+);/g, function (m, n) { return String.fromCharCode(+n); })
+              .replace(/&#x([0-9a-f]+);/gi, function (m, n) { return String.fromCharCode(parseInt(n, 16)); })
+              .replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+    }
+
+    // Lấy các cách nhấn từ dòng tiêu đề tiếng Nga (headword) của một trang Wiktionary. Trả về mảng các mảng vị trí.
+    function layNhanTuHtml(html, khoa) {
+      var kq = [], thay = Object.create(null), mo = /<(strong|span|b)\b([^>]*)>/gi, m;
+      while ((m = mo.exec(html))) {
+        var lop = (m[2].match(/class="([^"]*)"/) || [, ""])[1].split(/\s+/);
+        if (lop.indexOf("headword") < 0 || !/lang="ru"/.test(m[2])) continue;
+        // tìm thẻ đóng tương ứng (tính cả thẻ lồng nhau)
+        var dong = new RegExp("<(/?)(" + m[1] + ")\\b[^>]*>", "gi"), sau = mo.lastIndex, dosau = 1, d, het = -1;
+        dong.lastIndex = sau;
+        while ((d = dong.exec(html))) {
+          dosau += d[1] ? -1 : 1;
+          if (dosau === 0) { het = d.index; break; }
+        }
+        if (het < 0) continue;
+        var chu = giaiMa(html.slice(sau, het).replace(/<[^>]+>/g, "")).trim().normalize("NFC");
+        if (!chu || chu.indexOf("\u0301") < 0 || chuanHoa(chu) !== khoa) continue;
+        var idx = viTriDau(chu), k = idx.join(",");
+        if (!thay[k]) { thay[k] = true; kq.push(idx); }
+      }
+      return kq;
+    }
+
+    function traCuuIdx(w) {
+      function hoi(tieuDe) {
+        var url = "https://en.wiktionary.org/w/api.php?action=parse&page=" + encodeURIComponent(tieuDe) +
+                  "&prop=text&format=json&formatversion=2&redirects=1&origin=*";
+        return fetch(url).then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        }).then(function (d) {
+          if (d.error) { if (d.error.code === "missingtitle") return []; throw new Error(d.error.code || "loi"); }
+          return layNhanTuHtml((d.parse && d.parse.text) || "", chuanHoa(w));
+        });
+      }
+      return hoi(w).then(function (kq) {
+        var thuong = w.toLowerCase();
+        return (kq.length === 0 && thuong !== w) ? hoi(thuong) : kq;
+      });
+    }
+
+    // --- Bảng đặt dấu nhấn cho thẻ đang xem ---
+    var nhanTu = null, nhanChon = [];
+    function veNhan() {
+      var v = document.getElementById("nhanChuCai");
+      v.innerHTML = "";
+      var khongCach = !/\s/.test(nhanTu.nga);
+      Array.prototype.forEach.call(nhanTu.nga, function (ch, i) {
+        var laNguyen = RE_NGUYEN.test(ch), chon = nhanChon.indexOf(i) >= 0;
+        var el = document.createElement(laNguyen ? "button" : "span");
+        el.className = "nhanCC" + (laNguyen ? " nguyen" : "") + (chon ? " chon" : "");
+        el.textContent = (ch === " " ? "\u00a0" : ch) + (chon ? "\u0301" : "");
+        if (laNguyen) {
+          el.setAttribute("aria-pressed", chon);
+          el.setAttribute("aria-label", "Nguyên âm " + ch + (chon ? " (đang nhấn)" : ""));
+          el.onclick = function () {
+            var k = nhanChon.indexOf(i);
+            if (khongCach) nhanChon = k >= 0 ? [] : [i];
+            else if (k >= 0) nhanChon.splice(k, 1); else nhanChon.push(i);
+            document.getElementById("nhanDS").innerHTML = "";
+            veNhan();
+          };
+        }
+        v.appendChild(el);
+      });
+    }
+    function moNhan() {
+      if (danhSach.length === 0 || xongHet()) return;
+      if (dangToanMan()) batTatToanMan();
+      nhanTu = danhSach[viTri];
+      nhanChon = viTriDau(nhanTu.nhan || "");
+      document.getElementById("nhanTrangThai").textContent = RE_NGUYEN.test(nhanTu.nga) && !/ё/i.test(nhanTu.nga) &&
+        (nhanTu.nga.match(/[аеёиоуыэюя]/gi) || []).length < 2 ? "Từ chỉ có một nguyên âm nên không cần đánh dấu." : "";
+      document.getElementById("nhanDS").innerHTML = "";
+      veNhan();
+      document.getElementById("hopNhan").style.display = "flex";
+    }
+    function dongNhan() { document.getElementById("hopNhan").style.display = "none"; nhanTu = null; }
+
+    document.getElementById("btnNhan").onclick = moNhan;
+    document.getElementById("nhanHuy").onclick = dongNhan;
+    document.getElementById("nhanXoa").onclick = function () { nhanChon = []; document.getElementById("nhanDS").innerHTML = ""; veNhan(); };
+    document.getElementById("nhanLuu").onclick = function () {
+      if (!nhanTu) return;
+      if (nhanChon.length > 0) nhanTu.nhan = datDau(nhanTu.nga, nhanChon.slice().sort(function (a, b) { return a - b; }));
+      else delete nhanTu.nhan;
+      dongNhan();
+      luu();
+      hienThi();
+    };
+    document.getElementById("nhanTim").onclick = function () {
+      if (!nhanTu) return;
+      var tu = nhanTu, tt = document.getElementById("nhanTrangThai"), ds = document.getElementById("nhanDS");
+      ds.innerHTML = "";
+      tt.textContent = "⏳ Đang tra Wiktionary…";
+      traCuuIdx(tu.nga).then(function (kq) {
+        if (nhanTu !== tu) return;
+        if (kq.length === 0) {
+          tt.textContent = "Không tìm thấy dấu nhấn trên Wiktionary. Hãy chạm vào nguyên âm để tự đặt.";
+        } else if (kq.length === 1) {
+          nhanChon = kq[0];
+          veNhan();
+          tt.textContent = "Tìm thấy: " + datDau(tu.nga, kq[0]) + " · kiểm tra rồi bấm «Lưu».";
+        } else {
+          tt.textContent = "Có " + kq.length + " cách nhấn khác nhau, chạm để chọn:";
+          kq.forEach(function (ix) {
+            var b = document.createElement("button");
+            b.className = "nut";
+            b.lang = "ru";
+            b.textContent = datDau(tu.nga, ix);
+            b.onclick = function () { nhanChon = ix; ds.innerHTML = ""; tt.textContent = "Đã chọn " + b.textContent + " · bấm «Lưu»."; veNhan(); };
+            ds.appendChild(b);
+          });
+        }
+      }).catch(function () {
+        if (nhanTu === tu) tt.textContent = "Không tra được (không có mạng hoặc Wiktionary từ chối). Bạn vẫn có thể tự đặt.";
+      });
+    };
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && document.getElementById("hopNhan").style.display !== "none") dongNhan();
+    });
+
+    // --- Tra hàng loạt cho học phần đang mở ---
+    var nhanDangChay = false, nhanDungLai = false;
+    function canTraNhan(t) {
+      return !t.nhan && !/\s/.test(t.nga) && !/ё/i.test(t.nga) && (t.nga.match(/[аеёиоуыэюя]/gi) || []).length >= 2;
+    }
+    function traNhanHangLoat() {
+      if (nhanDangChay) return;
+      var ds = danhSach.filter(canTraNhan), tien = document.getElementById("nhanTienDo");
+      if (ds.length === 0) { tien.textContent = "Không có từ nào cần tra (đã có dấu nhấn, một nguyên âm, có ё, hoặc là cụm từ)."; return; }
+      nhanDangChay = true; nhanDungLai = false;
+      document.getElementById("nhanHang").disabled = true;
+      document.getElementById("nhanDung").style.display = "";
+      var i = 0, ok = 0, nhieu = 0, khong = 0, loiLien = 0;
+      function ketThuc(ghiChu) {
+        nhanDangChay = false;
+        document.getElementById("nhanHang").disabled = false;
+        document.getElementById("nhanDung").style.display = "none";
+        luu();
+        hienThi();
+        tien.textContent = (ghiChu ? ghiChu + " " : "") + "Đã ghi " + ok + " từ · " + nhieu + " từ có nhiều cách nhấn (bỏ qua) · " + khong + " từ không tìm thấy.";
+      }
+      function buoc() {
+        if (nhanDungLai) return ketThuc("Đã dừng.");
+        if (i >= ds.length) return ketThuc("Xong.");
+        var t = ds[i++];
+        tien.textContent = "⏳ Đang tra " + i + " / " + ds.length + " · đã ghi " + ok + " từ…";
+        traCuuIdx(t.nga).then(function (kq) {
+          loiLien = 0;
+          if (kq.length === 1) { t.nhan = datDau(t.nga, kq[0]); ok++; }
+          else if (kq.length > 1) nhieu++;
+          else khong++;
+        }).catch(function () { loiLien++; }).then(function () {
+          if (loiLien >= 3) return ketThuc("Mất kết nối nên dừng.");
+          if (i % 10 === 0) luu();
+          setTimeout(buoc, 120);
+        });
+      }
+      buoc();
+    }
+    document.getElementById("nhanHang").onclick = traNhanHangLoat;
+    document.getElementById("nhanDung").onclick = function () { nhanDungLai = true; };
 
     // ===== ĐỒNG BỘ QUA GITHUB GIST =====
     // Mỗi thiết bị giữ token riêng; dữ liệu nằm trong một gist bí mật. Máy nào sửa sau thì đẩy lên, máy kia lấy về.
@@ -2849,6 +3096,7 @@
           if (!a) { co.tu.push(t); theoKhoa[k] = t; return; }
           if (t.thuoc) a.thuoc = true;
           if (t.sao) a.sao = true;
+          if (t.nhan && !a.nhan) a.nhan = t.nhan;
           if ((t.oc || 0) > (a.oc || 0)) { a.ob = t.ob; a.han = t.han; a.oc = t.oc; }   // lịch ôn của lần ôn mới hơn
           if (t.dau && (!a.dau || t.dau < a.dau)) a.dau = t.dau;
           if (t.loai && (!a.loai || (a.loaiDoan && !t.loaiDoan))) {
