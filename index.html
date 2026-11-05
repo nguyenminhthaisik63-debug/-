@@ -242,6 +242,12 @@
     .tkCot i.dat { background: var(--luc); }
     .tkCot.nay span { color: var(--timNhat); font-weight: 700; }
 
+    /* ----- Công tắc dưới thẻ + bỏ biểu tượng loa khi đã luôn tự đọc ----- */
+    .congTat { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+    .khungThe.khongLoa .goc.sao { right: 18px; }
+    .khungThe.khongLoa .goc.sua { right: 66px; }
+    @media (max-width: 420px) { .khungThe.khongLoa .goc.sao { right: 8px; } .khungThe.khongLoa .goc.sua { right: 54px; } }
+
     /* ----- Thanh tab dưới cùng ----- */
     #thanhTab { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: #1d1745;
                 border-top: 1px solid #2f2a63; padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px)); gap: 2px; }
@@ -265,6 +271,18 @@
         <p class="muted">Chọn một học phần để bắt đầu. Các từ chỉ hiện ra sau khi bạn mở học phần.</p>
         <div class="tongSo" id="tongSo" aria-label="Thống kê toàn thư viện"></div>
       </div>
+    <section class="hop" id="khuSRS">
+      <h2>🧠 Ôn tập hôm nay</h2>
+      <div class="tongSo" id="srsO" style="margin-top:0" aria-label="Lịch ôn tập"></div>
+      <p class="muted" id="srsChu" style="margin:12px 0" aria-live="polite"></p>
+      <div class="hang" style="align-items:center">
+        <button id="srsBatDau" class="nut tim">▶ Bắt đầu ôn</button>
+        <label for="srsMoi" class="muted">Từ mới mỗi ngày:</label>
+        <input type="number" id="srsMoi" min="0" max="200" inputmode="numeric" style="width:90px">
+      </div>
+      <p class="muted" style="margin:0;font-size:13px">Vuốt phải khi nhớ: từ sẽ hiện lại sau 1 → 3 → 7 → 14 → 30 → 60 → 120 ngày. Vuốt trái khi quên: từ quay về ôn lại ngay và lùi lại vài bậc. Vuốt phải một từ chưa đến hạn thì lịch của từ đó không đổi, nên bạn học thoải mái ở các học phần mà không làm lệch lịch.</p>
+    </section>
+
     <section class="hop" id="khuThongKe">
       <h2>📊 Thống kê học tập</h2>
       <div class="tongSo" id="tkO" style="margin-top:0" aria-label="Chuỗi ngày và số từ đã biết"></div>
@@ -415,7 +433,10 @@
     </div>
 
     <div class="duoi">
-      <label class="theoDoi"><span>Theo dõi tiến độ</span><input type="checkbox" id="theoDoi" checked><i class="cong"></i></label>
+      <div class="congTat">
+        <label class="theoDoi"><span>Theo dõi tiến độ</span><input type="checkbox" id="theoDoi" checked><i class="cong"></i></label>
+        <label class="theoDoi"><span>Luôn đọc từ Nga 🔊</span><input type="checkbox" id="tuDocNga" checked><i class="cong"></i></label>
+      </div>
       <div class="giuaNut">
         <button id="conHoc" class="tron do" aria-label="Đang học (phím ←)" title="Đang học (←)">✕</button>
         <button id="daThuoc" class="tron xanh" aria-label="Đã biết (phím →)" title="Đã biết (→)">✓</button>
@@ -604,6 +625,7 @@
         khungQuiz.style.display = "none";
         cheDoChonHP = false;      // về thư viện: tắt chế độ chọn nhiều học phần
         daChonHP.clear();
+        thoatSRS();
         veThuVien();
         dbHenDay(800);
       }
@@ -611,6 +633,7 @@
 
     // Chuyển tab trong màn hình học (hoc / them / quiz / caidat) hoặc về thư viện
     function chonTab(ten) {
+      if (ten !== "hoc" && ten !== "thuvien" && cheDoSRS) thoatSRS();   // các tab khác làm việc trên một học phần thật
       if (ten === "thuvien") { hienManHinh("thuvien"); window.scrollTo({ top: 0 }); return; }
       tabHoc = ten;
       document.querySelectorAll("#viewHoc [data-tab]").forEach(function (el) {
@@ -640,7 +663,9 @@
       (Array.isArray(mang) ? mang : []).forEach(function (t) {
         if (t && t.nga && t.viet) {
           kq.push({ nga: String(t.nga), viet: String(t.viet), thuoc: !!t.thuoc, sao: !!t.sao,
-                    loai: t.loai ? String(t.loai) : undefined, loaiDoan: t.loaiDoan ? true : undefined });
+                    loai: t.loai ? String(t.loai) : undefined, loaiDoan: t.loaiDoan ? true : undefined,
+                    ob: Number.isFinite(t.ob) ? t.ob : undefined, han: Number.isFinite(t.han) ? t.han : undefined,
+                    oc: Number.isFinite(t.oc) ? t.oc : undefined, dau: Number.isFinite(t.dau) ? t.dau : undefined });
         }
       });
       return kq;
@@ -708,13 +733,15 @@
     var danhSach = thuVien[hienTai].tu; // các hàm bên dưới làm việc trên học phần đang mở
 
     // ===== THỐNG KÊ HỌC TẬP: thẻ đã ôn mỗi ngày, chuỗi ngày liên tiếp, mục tiêu =====
-    var thongKe = { ngay: {}, mucTieu: 20 };   // ngay: { "2026-11-03": { on: số thẻ đã chấm, biet: số lần bấm «đã biết» } }
+    var thongKe = { ngay: {}, mucTieu: 20, moi: 10 };   // ngay: { "2026-11-03": { on: số thẻ đã chấm, biet: số lần bấm «đã biết» } }
 
     function chuanThongKe(x) {
-      var kq = { ngay: {}, mucTieu: 20 };
+      var kq = { ngay: {}, mucTieu: 20, moi: 10 };
       if (!x || typeof x !== "object") return kq;
       var mt = parseInt(x.mucTieu, 10);
       if (mt >= 1 && mt <= 1000) kq.mucTieu = mt;
+      var mo = parseInt(x.moi, 10);
+      if (mo >= 0 && mo <= 200) kq.moi = mo;
       var ng = (x.ngay && typeof x.ngay === "object") ? x.ngay : {};
       Object.keys(ng).forEach(function (k) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !ng[k]) return;
@@ -841,6 +868,115 @@
       capNhatDongMucTieu();
     }
 
+    // ===== LẶP LẠI NGẮT QUÃNG (SRS) =====
+    // Mỗi từ có: ob = bậc (0..7), han = thời điểm đến hạn ôn, oc = lần ôn gần nhất, dau = lần đầu vào lịch.
+    var SRS_KHOANG = [0, 1, 3, 7, 14, 30, 60, 120];   // số ngày chờ ở mỗi bậc
+    var SRS_TOI_DA = 60;                               // tối đa số từ đến hạn trong một phiên
+
+    function srsNgay(n) {   // 0 giờ của ngày hôm nay + n ngày
+      var d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() + n);
+      return d.getTime();
+    }
+    function laySRS(t) { return { ob: t.ob, han: t.han, oc: t.oc, dau: t.dau }; }
+    function datSRS(t, x) {
+      ["ob", "han", "oc", "dau"].forEach(function (k) { if (x && x[k] !== undefined) t[k] = x[k]; else delete t[k]; });
+    }
+
+    // nho = true (vuốt phải / trả lời đúng) hoặc false (vuốt trái / trả lời sai)
+    function capNhatSRS(t, nho) {
+      var bay = Date.now(), moi = !t.han;
+      if (nho) {
+        if (!moi && t.han > bay) return;   // chưa đến hạn: ôn thêm cũng không đẩy lịch
+        t.ob = moi ? (t.thuoc ? 3 : 1) : Math.min((t.ob || 0) + 1, SRS_KHOANG.length - 1);
+        t.han = srsNgay(SRS_KHOANG[t.ob]);
+      } else {
+        t.ob = Math.max(0, (t.ob || 0) - 2);
+        t.han = srsNgay(0);                // quên: đến hạn ngay, ôn lại trong phiên
+      }
+      t.oc = bay;
+      if (!t.dau) t.dau = bay;
+    }
+
+    // Gom các từ cần ôn hôm nay từ mọi học phần
+    function phienSRS() {
+      var bay = Date.now(), dauNgay = srsNgay(0);
+      var den = [], moi = [], moiHomNay = 0, trongLich = 0, vung = 0, keTiep = 0;
+      thuVien.forEach(function (hp) {
+        hp.tu.forEach(function (t) {
+          if (t.han) {
+            trongLich++;
+            if ((t.ob || 0) >= 5) vung++;
+            if (t.han <= bay) den.push(t); else if (!keTiep || t.han < keTiep) keTiep = t.han;
+            if (t.dau && t.dau >= dauNgay) moiHomNay++;
+          } else {
+            moi.push(t);
+          }
+        });
+      });
+      den.sort(function (a, b) { return a.han - b.han; });
+      var moiCon = Math.max(0, thongKe.moi - moiHomNay);
+      var moiChon = moi.filter(function (t) { return !t.thuoc; }).concat(moi.filter(function (t) { return t.thuoc; })).slice(0, moiCon);
+      var denChon = den.slice(0, SRS_TOI_DA);
+      return { den: den.length, denChon: denChon.length, moiChon: moiChon.length, moiTong: moi.length, moiHomNay: moiHomNay,
+               trongLich: trongLich, vung: vung, keTiep: keTiep, list: denChon.concat(moiChon) };
+    }
+
+    function veSRS() {
+      var p = phienSRS();
+      var vung = document.getElementById("srsO");
+      vung.innerHTML = "";
+      [["Cần ôn hôm nay", p.den, p.den > 0], ["Từ mới sẽ học", p.moiChon], ["Đang trong lịch ôn", p.trongLich], ["Đã vững", p.vung]].forEach(function (x) {
+        var el = document.createElement("div");
+        el.className = "oSo" + (x[2] ? " chinh" : "");
+        var b = document.createElement("b"); b.textContent = x[1];
+        var t = document.createElement("span"); t.textContent = x[0];
+        el.appendChild(b); el.appendChild(t);
+        vung.appendChild(el);
+      });
+      var chu;
+      if (p.list.length > 0) {
+        chu = "Phiên hôm nay: " + p.denChon + " từ đến hạn" + (p.moiChon ? " + " + p.moiChon + " từ mới" : "") + "." +
+              (p.den > p.denChon ? " Còn " + (p.den - p.denChon) + " từ đến hạn để dành cho phiên sau." : "");
+      } else if (p.trongLich === 0) {
+        chu = "Chưa có từ nào trong lịch ôn. Hãy học một học phần và vuốt ✓ hoặc ✕, từ sẽ tự vào lịch.";
+      } else {
+        chu = "🎉 Đã ôn xong hôm nay." + (p.keTiep ? " Từ kế tiếp đến hạn vào " +
+              new Date(p.keTiep).toLocaleDateString("vi-VN", { weekday: "short", day: "numeric", month: "numeric" }) + "." : "");
+        if (p.moiTong > 0 && thongKe.moi - p.moiHomNay <= 0) chu += " Bạn đã học đủ " + thongKe.moi + " từ mới hôm nay (tăng ở ô «Từ mới mỗi ngày» nếu muốn học thêm).";
+      }
+      document.getElementById("srsChu").textContent = chu;
+      var nut = document.getElementById("srsBatDau");
+      nut.disabled = p.list.length === 0;
+      nut.textContent = "▶ Bắt đầu ôn" + (p.list.length ? " (" + p.list.length + " từ)" : "");
+      var oMoi = document.getElementById("srsMoi");
+      if (document.activeElement !== oMoi) oMoi.value = thongKe.moi;
+    }
+
+    function batDauSRS() {
+      var p = phienSRS();
+      if (p.list.length === 0) { thongBao("Hôm nay không có từ nào cần ôn 🎉"); return; }
+      cheDoSRS = true;
+      danhSach = p.list;       // danh sách gộp; các từ vẫn là bản gốc trong từng học phần
+      nguonVong = null; viTri = 0; dangLat = false; hienGoiY = false; lichSu = null; chiSao = false;
+      khungQuiz.style.display = "none";
+      tabHoc = "hoc";
+      hienThi();
+      hienManHinh("hoc");
+      daDocKhoa = "";
+      tuDocNeuCan();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    // Thoát chế độ ôn gộp, quay về học phần đang mở
+    function thoatSRS() {
+      if (!cheDoSRS) return;
+      cheDoSRS = false;
+      danhSach = thuVien[hienTai].tu;
+      nguonVong = null; viTri = 0; dangLat = false; hienGoiY = false; lichSu = null;
+    }
+
     var suaLuc = 0;   // thời điểm nội dung (từ vựng, thư mục) được sửa lần cuối trên máy này
     try { suaLuc = Number(localStorage.getItem("thuVienSua")) || 0; } catch (loi) {}
     var dauVanCu = JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc, thongKe: thongKe });
@@ -875,6 +1011,10 @@
     var daQuaVong = new Set();  // các thẻ đã đi qua trong vòng này
     var quyetVong = new Map();  // thẻ → true (vuốt phải: đã biết) hoặc false (vuốt trái: đang học), tính trong vòng này
     var nguonVong = null;       // vòng này thuộc học phần nào
+    var cheDoSRS = false;       // đang ôn «Ôn hôm nay» (danhSach là danh sách gộp từ nhiều học phần)?
+    var tuDocNga = true;        // luôn tự đọc từ tiếng Nga
+    try { var tdn = localStorage.getItem("tuDocNga"); if (tdn !== null) tuDocNga = tdn === "1"; } catch (loi) {}
+    var daDocKhoa = "";         // thẻ + mặt vừa đọc, để không đọc lặp lại khi vẽ lại màn hình
 
     var the = document.getElementById("card");
     var matTruoc = document.getElementById("matTruoc");
@@ -944,7 +1084,7 @@
       }
 
       document.getElementById("huong").textContent = chieu === "nga" ? "Nga → Việt" : "Việt → Nga";
-      document.getElementById("tenHP").textContent = thuVien[hienTai].ten;
+      document.getElementById("tenHP").textContent = cheDoSRS ? "🧠 Ôn hôm nay" : thuVien[hienTai].ten;
 
       // Hiện rõ chiều học hiện tại ngay phía trên thẻ
       document.getElementById("nhanChieu").textContent = chieu === "nga"
@@ -969,6 +1109,9 @@
 
       var nutSao = document.getElementById("btnSao");
       capNhatDongMucTieu();
+      document.getElementById("nghe").style.display = tuDocNga ? "none" : "";   // luôn tự đọc thì không cần nút loa
+      document.querySelector(".khungThe").classList.toggle("khongLoa", tuDocNga);
+      document.getElementById("btnDatLai").style.display = cheDoSRS ? "none" : "";
 
       if (danhSach.length === 0) {
         matTruoc.textContent = "Học phần này chưa có từ nào. Hãy thêm từ ở bên dưới!";
@@ -985,8 +1128,10 @@
       if (viTri >= danhSach.length) viTri = 0;
 
       if (xongHet()) {                          // đã thuộc hết mọi thẻ đang học
-        matTruoc.textContent = "🎉 Bạn đã thuộc hết! Bấm «🔄 Đặt lại học phần» để học lại, " +
-                               "hoặc tắt «🎯 Chỉ học từ chưa thuộc» để xem lại tất cả.";
+        matTruoc.textContent = cheDoSRS
+          ? "🎉 Xong phiên ôn hôm nay! Về «📚 Thư viện» để xem lịch ôn tiếp theo."
+          : "🎉 Bạn đã thuộc hết! Bấm «🔄 Đặt lại học phần» để học lại, " +
+            "hoặc tắt «🎯 Chỉ học từ chưa thuộc» để xem lại tất cả.";
         matSau.textContent = "";
         goiYChu.textContent = "";
         dangLat = false;
@@ -1009,6 +1154,7 @@
       nutSao.textContent = tu.sao ? "★" : "☆";
       nutSao.classList.toggle("bat", !!tu.sao);
       dem.textContent = (viTri + 1) + " / " + danhSach.length;
+      tuDocNeuCan();
     }
 
     function chuyenThe(buoc) {
@@ -1020,6 +1166,7 @@
         if (theHopLe(danhSach[viTriMoi])) break; // bỏ qua thẻ không thuộc bộ lọc (đã thuộc)
       }
       viTri = viTriMoi;
+      daDocKhoa = "";
       dangLat = false;
       hienGoiY = false;
       if (buoc > 0 && poolVong.size > 0 && daQuaVong.size >= poolVong.size) { hetVong(); return; }
@@ -1033,9 +1180,10 @@
         return;
       }
       var tu = danhSach[viTri];
-      lichSu = { hocPhan: hienTai, chiSo: viTri, cu: tu.thuoc, coQuyet: quyetVong.has(tu), quyetCu: quyetVong.get(tu) };
+      lichSu = { hocPhan: hienTai, chiSo: viTri, cu: tu.thuoc, coQuyet: quyetVong.has(tu), quyetCu: quyetVong.get(tu), srs: laySRS(tu) };
       quyetVong.set(tu, giaTri);
       if (document.getElementById("theoDoi").checked) {
+        capNhatSRS(tu, giaTri);   // cập nhật lịch ôn (dùng trạng thái «đã thuộc» cũ nên đặt trước dòng dưới)
         tu.thuoc = giaTri;
         lichSu.ngay = ghiThongKe(giaTri, 1);   // tính 1 thẻ đã ôn
         lichSu.biet = giaTri;
@@ -1048,6 +1196,7 @@
       if (lichSu && lichSu.hocPhan === hienTai && danhSach[lichSu.chiSo]) {
         var tu = danhSach[lichSu.chiSo];
         tu.thuoc = lichSu.cu;
+        datSRS(tu, lichSu.srs);   // trả lịch ôn về như trước
         if (lichSu.coQuyet) quyetVong.set(tu, lichSu.quyetCu); else quyetVong.delete(tu);   // trả bộ đếm về như trước
         if (lichSu.ngay) ghiThongKe(lichSu.biet, -1, lichSu.ngay);   // hoàn tác thì trừ lại
         daQuaVong.delete(tu); // thẻ được hoàn tác thì chưa tính là "đã qua"
@@ -1213,18 +1362,46 @@
     };
 
     // ===== PHÁT ÂM tiếng Nga =====
-    document.getElementById("nghe").onclick = function () {
-      if (danhSach.length === 0) return;
-      if (!("speechSynthesis" in window)) {
-        alert("Trình duyệt này chưa hỗ trợ phát âm.");
-        return;
-      }
-      var doc = new SpeechSynthesisUtterance(danhSach[viTri].nga);
+    // Đọc một từ tiếng Nga. Trả về false nếu trình duyệt không hỗ trợ.
+    function docNga(chu) {
+      if (!chu || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") return false;
+      var doc = new SpeechSynthesisUtterance(chu);
       doc.lang = "ru-RU";
       doc.rate = 0.85;
       speechSynthesis.cancel();
       speechSynthesis.speak(doc);
+      return true;
+    }
+
+    // Chế độ luôn đọc: mỗi khi mặt có chữ Nga hiện ra thì tự đọc (một lần cho mỗi lần hiện)
+    function tuDocNeuCan() {
+      if (!tuDocNga || manHinh !== "hoc" || tabHoc !== "hoc") return;
+      var tu = danhSach[viTri];
+      if (!tu || xongHet()) { daDocKhoa = ""; return; }
+      var thayNga = (chieu === "nga") !== dangLat;   // mặt đang hiện là mặt chữ Nga?
+      if (!thayNga) { daDocKhoa = ""; return; }
+      var khoa = viTri + "|" + tu.nga + "|" + (dangLat ? 1 : 0);
+      if (khoa === daDocKhoa) return;
+      daDocKhoa = khoa;
+      docNga(tu.nga);
+    }
+
+    document.getElementById("nghe").onclick = function () {
+      if (danhSach.length === 0) return;
+      if (!docNga(danhSach[viTri].nga)) alert("Trình duyệt này chưa hỗ trợ phát âm.");
     };
+
+    (function () {
+      var cb = document.getElementById("tuDocNga");
+      cb.checked = tuDocNga;
+      cb.onchange = function () {
+        tuDocNga = cb.checked;
+        try { localStorage.setItem("tuDocNga", tuDocNga ? "1" : "0"); } catch (loi) {}
+        daDocKhoa = "";
+        cb.blur();   // để phím tắt (phím cách, mũi tên…) tiếp tục dùng được
+        hienThi();   // cập nhật nút loa và đọc ngay thẻ đang hiện nếu vừa bật
+      };
+    })();
 
     // ===== TOÀN MÀN HÌNH =====
     var khuHoc = document.getElementById("khuHoc");
@@ -1321,6 +1498,10 @@
     document.getElementById("xoa").onclick = function () {
       if (danhSach.length === 0 || xongHet()) return;
       if (!confirm("Xóa từ «" + danhSach[viTri].nga + "»?")) return;
+      var tuXoa = danhSach[viTri];
+      thuVien.forEach(function (hp) {   // đang ôn gộp nhiều học phần thì xóa luôn ở học phần gốc
+        if (hp.tu !== danhSach) { var i = hp.tu.indexOf(tuXoa); if (i >= 0) hp.tu.splice(i, 1); }
+      });
       danhSach.splice(viTri, 1);
       if (viTri >= danhSach.length) viTri = 0;
       dangLat = false;
@@ -1450,6 +1631,7 @@
 
     function veThuVien() {
       veTongSo();
+      veSRS();
       veThongKe();
       // --- Thanh thư mục ---
       var thanh = document.getElementById("dsMuc");
@@ -1553,6 +1735,7 @@
     }
 
     function moHocPhan(i) {
+      cheDoSRS = false;
       hienTai = i;
       danhSach = thuVien[i].tu; // chuyển sang học phần được chọn
       nguonVong = null;         // mở học phần: luôn bắt đầu lại từ vòng 1
@@ -1566,6 +1749,8 @@
       hienThi();
       tabHoc = "hoc";
       hienManHinh("hoc");
+      daDocKhoa = "";
+      tuDocNeuCan();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
@@ -1592,6 +1777,7 @@
       if (!confirm("Xóa học phần «" + thuVien[hienTai].ten + "» cùng " + danhSach.length + " từ?")) return;
       thuVien.splice(hienTai, 1);
       hienTai = 0;
+      cheDoSRS = false;
       danhSach = thuVien[0].tu;
       viTri = 0; dangLat = false; hienGoiY = false; lichSu = null; chiSao = false;
       luu();
@@ -2315,11 +2501,13 @@
       if (dung) {
         diem++;
         ketQua.textContent = "✓ Chính xác! / Верно!";
+        capNhatSRS(cauHienTai, true);
         ghiThongKe(true, 1);
         luu();
       } else {
         ketQua.textContent = "✗ Chưa đúng / Неверно — đáp án: " + cauHienTai[truongDapAn()];
         cauHienTai.thuoc = false; // trả lời sai thì từ này quay về "đang học"
+        capNhatSRS(cauHienTai, false);
         ghiThongKe(false, 1);
         luu();
         hienThi();
@@ -2519,6 +2707,13 @@
       docTep.readAsText(tep, "UTF-8");
     };
 
+    document.getElementById("srsBatDau").onclick = batDauSRS;
+    document.getElementById("srsMoi").onchange = function () {
+      var v = parseInt(this.value, 10);
+      if (!(v >= 0 && v <= 200)) { this.value = thongKe.moi; return; }
+      thongKe.moi = v;
+      luu();
+    };
     document.getElementById("tkMucTieu").onchange = function () {
       var v = parseInt(this.value, 10);
       if (!(v >= 1 && v <= 1000)) { this.value = thongKe.mucTieu; return; }
@@ -2612,6 +2807,7 @@
       hienTai = 0;
       chuanHoaDuLieu();
       danhSach = thuVien[0].tu;
+      cheDoSRS = false;
       nguonVong = null; viTri = 0; dangLat = false; hienGoiY = false; lichSu = null;
       daChonHP.clear(); daChon.clear(); cheDoChonHP = false; locMuc = "tatca"; locTab = "tat";
       suaLuc = Math.max(Date.now(), suaLuc + 1);
@@ -2653,6 +2849,8 @@
           if (!a) { co.tu.push(t); theoKhoa[k] = t; return; }
           if (t.thuoc) a.thuoc = true;
           if (t.sao) a.sao = true;
+          if ((t.oc || 0) > (a.oc || 0)) { a.ob = t.ob; a.han = t.han; a.oc = t.oc; }   // lịch ôn của lần ôn mới hơn
+          if (t.dau && (!a.dau || t.dau < a.dau)) a.dau = t.dau;
           if (t.loai && (!a.loai || (a.loaiDoan && !t.loaiDoan))) {
             a.loai = t.loai;
             if (t.loaiDoan) a.loaiDoan = true; else delete a.loaiDoan;
