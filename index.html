@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8">
+ <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#120a2e">
+  <meta name="theme-color" content="#0b1329">
   <script>
     (function () {
       try {
@@ -13,7 +13,7 @@
         if (sang) r.setAttribute("data-theme", "light");
         if (g.co >= 0.7 && g.co <= 2) r.style.setProperty("--co", g.co);
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", sang ? "#f4f2ff" : "#120a2e");
+        if (m) m.setAttribute("content", sang ? "#f0f4f8" : "#0b1329");
       } catch (e) {}
     })();
   </script>
@@ -27,19 +27,19 @@
   <title>Thẻ từ vựng tiếng Nga</title>
   <style>
     :root {
-      --nen: #120a2e; --the: #35335a; --vien: #4a4875; --chu: #f4f3ff; --phu: #b3b0d6;
-      --tim: #4f2bff; --timNhat: #b79dff; --cam: #ff8a3d; --luc: #23e5a8; --do: #ff5d52;
-      --hop: #1d1745; --vienHop: #2f2a63; --hopHover: #2a2260; --chonHP: #3f3b78; --congNen: #5b5a80; --thanhNen: #2a2560;
-      --timHover: #6648ff; --placeholder: #7f7ba8; --kbdVien: #cfc8f5; --chuTrenNhat: #1b1340;
+      --nen: #0b1329; --the: #1e294b; --vien: #334155; --chu: #f0f6fc; --phu: #94a3b8;
+      --tim: #0284c7; --timNhat: #38bdf8; --cam: #f97316; --luc: #10b981; --do: #ef4444;
+      --hop: #111e38; --vienHop: #233554; --hopHover: #1a2d53; --chonHP: #1e3a8a; --congNen: #475569; --thanhNen: #1e293b;
+      --timHover: #0369a1; --placeholder: #64748b; --kbdVien: #7dd3fc; --chuTrenNhat: #ffffff;
       --hover: rgba(255,255,255,.08); --hover2: rgba(255,255,255,.05); --co: 1;
     }
     :root[data-theme="light"] {
       color-scheme: light;
-      --nen: #f4f2ff; --the: #ffffff; --vien: #cfc9ee; --chu: #1b1340; --phu: #5a5683;
-      --tim: #4f2bff; --timNhat: #6a4cf5; --cam: #c85a0a; --luc: #0a8f64; --do: #d3342b;
-      --hop: #ffffff; --vienHop: #ddd8f5; --hopHover: #ece8ff; --chonHP: #e6e0ff; --congNen: #b9b4d8; --thanhNen: #e3def8;
-      --timHover: #6648ff; --placeholder: #9a96bd; --kbdVien: #6b5aa8; --chuTrenNhat: #ffffff;
-      --hover: rgba(27,19,64,.07); --hover2: rgba(27,19,64,.04);
+      --nen: #f0f4f8; --the: #ffffff; --vien: #cbd5e1; --chu: #0f172a; --phu: #475569;
+      --tim: #0284c7; --timNhat: #0ea5e9; --cam: #ea580c; --luc: #059669; --do: #dc2626;
+      --hop: #ffffff; --vienHop: #e2e8f0; --hopHover: #e0f2fe; --chonHP: #bae6fd; --congNen: #cbd5e1; --thanhNen: #e2e8f0;
+      --timHover: #0369a1; --placeholder: #94a3b8; --kbdVien: #0284c7; --chuTrenNhat: #ffffff;
+      --hover: rgba(15,23,42,.07); --hover2: rgba(15,23,42,.04);
     }
     :root[data-theme="light"] .mat { box-shadow: 0 2px 10px rgba(27,19,64,.12); }
     .nut.tim, .nut[aria-pressed="true"], .vien[aria-pressed="true"], .muc.mucMo, button.nhanCC.chon, .nut.nguyNen { color: #fff; }
