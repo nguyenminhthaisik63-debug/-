@@ -26,6 +26,53 @@
   <link rel="apple-touch-icon" href="icon-512.png">
   <title>Thẻ từ vựng tiếng Nga</title>
   <style>
+   /* ----- Chế độ Zen (Zen Mode) ----- */
+    #khuHoc.zenMode {
+      background: var(--nen);
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    #khuHoc.zenMode .top,
+    #khuHoc.zenMode .thongKe,
+    #khuHoc.zenMode .nhanChieu,
+    #khuHoc.zenMode .duoi,
+    #khuHoc.zenMode .hang:not(:has(#btnThoatZen)) {
+      display: none !important;
+    }
+    #khuHoc.zenMode .khungThe {
+      width: 100%;
+      max-width: 600px;
+      height: clamp(350px, 65vh, 550px);
+      margin: 0 auto;
+     <div class="hang" style="justify-content:center">
+      <button id="btnThoatZen" class="nutZenThoat">Thoát Zen Mode (hoặc nhấn Esc)</button>
+    </div>
+    }
+    /* Nút thoát Zen ẩn hiện tinh tế hoặc nằm gọn dưới thẻ */
+    .nutZenThoat {
+      display: none;
+      margin-top: 24px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--vien);
+      border-radius: 999px;
+      padding: 8px 20px;
+      color: var(--phu);
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .nutZenThoat:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: var(--chu);
+    }
+    #khuHoc.zenMode .nutZenThoat {
+      display: inline-block;
+    }
     :root {
       --nen: #0b1329; --the: #1e294b; --vien: #334155; --chu: #f0f6fc; --phu: #94a3b8;
       --tim: #0284c7; --timNhat: #38bdf8; --cam: #f97316; --luc: #10b981; --do: #ef4444;
@@ -530,6 +577,7 @@
       <button id="btnDatLai" class="nut">🔄 Đặt lại học phần</button>
       <button id="btnNhan" class="nut">´ Dấu nhấn</button>
       <button id="xoa" class="nut nguy">🗑 Xóa thẻ này</button>
+     <button id="btnZen" class="nut">🧘 Zen Mode</button>
     </div>
   </div>
 
@@ -733,6 +781,37 @@
   <input type="file" id="chonTep" accept=".json,.txt,.csv" style="display:none">
 
   <script>
+   var khuHocEl = document.getElementById("khuHoc");
+    var btnZen = document.getElementById("btnZen");
+    var btnThoatZen = document.getElementById("btnThoatZen");
+
+    function batTatZen(bat) {
+      var laZen = bat !== undefined ? bat : !khuHocEl.classList.contains("zenMode");
+      khuHocEl.classList.toggle("zenMode", laZen);
+      if (laZen) {
+        thongBao("Đã bật Chế độ Zen. Chúc bạn tập trung học tốt!");
+      }
+    }
+
+    if (btnZen) btnZen.onclick = function() { batTatZen(true); };
+    if (btnThoatZen) btnThoatZen.onclick = function() { batTatZen(false); };
+
+    // Thêm phím tắt 'Z' hoặc 'Esc' để bật/tắt Zen nhanh chóng
+    document.addEventListener("keydown", function (e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      var tag = e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
+      if (manHinh !== "hoc" || tabHoc !== "hoc") return;
+
+      var phim = e.code;
+      if (phim === "KeyZ") {
+        e.preventDefault();
+        batTatZen();
+      } else if (phim === "Escape" && khuHocEl.classList.contains("zenMode")) {
+        e.preventDefault();
+        batTatZen(false);
+      }
+    });
     // ===== HAI MÀN HÌNH: thư viện / học =====
     var manHinh = "thuvien";
     var tabHoc = "hoc";   // tab đang mở trong màn hình học: hoc | them | quiz | caidat
