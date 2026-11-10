@@ -43,6 +43,7 @@
     #khuHoc.zenMode .thongKe,
     #khuHoc.zenMode .nhanChieu,
    
+    #khuHoc.zenMode .hocThem,
     #khuHoc.zenMode .hang { display: none !important; }
     /* .manHinh bao quanh thẻ phải rộng 100%, nếu không thẻ bị co về 0 */
     #khuHoc.zenMode .manHinh { width: 100%; max-width: 640px; margin: 0; padding: 0; }
@@ -134,11 +135,9 @@
           font-family: inherit; font-size: 14px; font-weight: 600; margin: 0 4px; color: var(--chuTrenNhat); }
     @media (max-width: 640px) { .maytinh { display: none; } }
 
-    .duoi { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin: 22px 0 8px; }
+    .duoi { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 28px; margin: 22px 0 8px; }
     .giuaNut { display: flex; gap: 16px; }
-    .phaiNut { display: flex; gap: 10px; justify-content: flex-end; }
-    @media (max-width: 640px) { .duoi { grid-template-columns: 1fr; justify-items: center; }
-                                .phaiNut { justify-content: center; } }
+    .phaiNut { display: flex; gap: 10px; justify-content: center; }
     .tron { width: 114px; height: 64px; border-radius: 36px; background: var(--the); border: 0; font-size: 28px; }
     .tron.do { color: var(--do); } .tron.xanh { color: var(--luc); }
     .tron.nho { width: 56px; height: 56px; border-radius: 50%; font-size: 22px; color: var(--phu); }
@@ -349,6 +348,50 @@
     #viewHoc { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
     #thongBao, #thongBaoTab { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
 
+    /* ----- Giảm cuộn: khối thu gọn + màn học vừa một màn hình ----- */
+    .nhanChieu:empty { display: none; }
+    details.hop > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; min-height: 28px; }
+    details.hop > summary::-webkit-details-marker { display: none; }
+    details.hop > summary::after { content: "⌄"; margin-left: auto; color: var(--timNhat); font-size: 22px; line-height: 1; transition: transform .2s; flex: none; }
+    details.hop[open] > summary::after { transform: rotate(180deg); }
+    details.hop > summary h2 { margin: 0; }
+    details.hop[open] > summary { margin-bottom: 12px; }
+    details.moRong { margin: 6px 0 0; }
+    details.moRong > summary { cursor: pointer; list-style: none; color: var(--timNhat); font-size: 14px; font-weight: 600; padding: 6px 0; }
+    details.moRong > summary::-webkit-details-marker { display: none; }
+    details.moRong > summary::before { content: "ⓘ "; }
+    details.moRong > p { margin: 4px 0 0; }
+    details.hocThem { background: var(--hop); border: 1px solid var(--vienHop); border-radius: 14px; padding: 0 14px 4px; margin-top: 10px; }
+    details.hocThem > summary { cursor: pointer; list-style: none; text-align: center; color: var(--timNhat); font-weight: 700; font-size: 15px; padding: 12px 0; }
+    details.hocThem > summary::-webkit-details-marker { display: none; }
+    details.hocThem[open] > summary { border-bottom: 1px solid var(--vienHop); margin-bottom: 12px; }
+    details.hocThem .congTat { margin: 0 0 6px; }
+    summary:focus-visible { outline: 3px solid var(--timNhat); outline-offset: 2px; border-radius: 8px; }
+
+    @media (max-width: 640px) {
+      .manHinh { padding: 0 14px 20px; }
+      #manThuVien { padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
+      .tieuDe h1 { font-size: 22px; }
+      .hop { padding: 14px; margin-top: 12px; border-radius: 16px; }
+      .hop h2 { font-size: 18px; margin-bottom: 10px; }
+      .tongSo { gap: 8px; margin-top: 10px; }
+      .oSo { min-width: 0; flex: 1 1 88px; padding: 8px 12px; }
+      .oSo b { font-size: 22px; }
+      .hocPhan { padding: 12px 14px; margin: 4px 0; }
+      .top { padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
+      .thongKe { margin: 4px 0; }
+      .nhanChieu { font-size: 13px; margin: 0 0 4px; min-height: 0; }
+      #nhanVong, #nhanMucTieu { margin-top: 0 !important; }
+      .khungThe { height: clamp(260px, 52vh, 520px); height: clamp(240px, calc(100dvh - 380px), 520px); }
+      .mat { padding-top: 48px; }
+      .duoi { gap: 10px; margin: 12px 0 6px; flex-wrap: nowrap; }
+      .giuaNut { gap: 10px; }
+      .phaiNut { gap: 8px; }
+      .tron { width: 84px; height: 56px; font-size: 26px; }
+      .tron.nho { width: 48px; height: 48px; font-size: 20px; }
+      #btnLen, #btnXuong { display: none; }
+    }
+
     @media (prefers-reduced-motion: reduce) { #card, .cong, .cong::after, .thongBao { transition: none; } }
   </style>
 </head>
@@ -370,23 +413,7 @@
         <label for="srsMoi" class="muted">Từ mới mỗi ngày:</label>
         <input type="number" id="srsMoi" min="0" max="200" inputmode="numeric" style="width:90px">
       </div>
-      <p class="muted" style="margin:0;font-size:13px">Vuốt phải khi nhớ: từ sẽ hiện lại sau 1 → 3 → 7 → 14 → 30 → 60 → 120 ngày. Vuốt trái khi quên: từ quay về ôn lại ngay và lùi lại vài bậc. Vuốt phải một từ chưa đến hạn thì lịch của từ đó không đổi, nên bạn học thoải mái ở các học phần mà không làm lệch lịch.</p>
-    </section>
-
-    <section class="hop" id="khuThongKe">
-      <h2>📊 Thống kê học tập</h2>
-      <div class="tongSo" id="tkO" style="margin-top:0" aria-label="Chuỗi ngày và số từ đã biết"></div>
-      <div class="tkThanh" role="progressbar" aria-label="Tiến độ mục tiêu hôm nay" aria-valuemin="0" aria-valuemax="100" id="tkThanh"><i id="tkThanhIn"></i></div>
-      <p class="muted" id="tkChu" style="margin:0 0 4px"></p>
-      <div class="tkBieuDo" id="tkBieuDo" role="img" aria-label="Số từ đã biết trong 7 ngày gần nhất"></div>
-      <p class="muted" id="lichChu" style="margin:10px 0 6px"></p>
-      <div class="lichBao" id="lichBao"><div class="lich" id="lich" role="img" aria-label="Lịch học"></div></div>
-      <div class="lichCT muted" aria-hidden="true">Ít <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> Nhiều</div>
-      <div class="hang" style="align-items:center">
-        <label for="tkMucTieu" class="muted">Mục tiêu mỗi ngày (số từ đã biết):</label>
-        <input type="number" id="tkMucTieu" min="1" max="1000" inputmode="numeric" style="width:100px">
-      </div>
-      <p class="muted" style="margin:0;font-size:13px">Chỉ tính các từ bạn vuốt phải (✓ đã biết, khi bật «Theo dõi tiến độ») hoặc trả lời đúng trong trắc nghiệm. Vuốt trái (✕) không được tính. Ngày có ít nhất 1 từ đã biết được tính vào chuỗi ngày liên tiếp.</p>
+      <details class="moRong"><summary>Cách ôn tập hoạt động</summary><p class="muted" style="font-size:13px">Vuốt phải khi nhớ: từ sẽ hiện lại sau 1 → 3 → 7 → 14 → 30 → 60 → 120 ngày. Vuốt trái khi quên: từ quay về ôn lại ngay và lùi lại vài bậc. Vuốt phải một từ chưa đến hạn thì lịch của từ đó không đổi, nên bạn học thoải mái ở các học phần mà không làm lệch lịch.</p></details>
     </section>
 
     <section class="hop">
@@ -417,8 +444,24 @@
       </div>
     </section>
 
-      <section class="hop" id="khuDongBo">
-        <h2>☁ Đồng bộ điện thoại ↔ máy tính</h2>
+    <details class="hop" id="khuThongKe">
+      <summary><h2>📊 Thống kê học tập</h2></summary>
+      <div class="tongSo" id="tkO" style="margin-top:0" aria-label="Chuỗi ngày và số từ đã biết"></div>
+      <div class="tkThanh" role="progressbar" aria-label="Tiến độ mục tiêu hôm nay" aria-valuemin="0" aria-valuemax="100" id="tkThanh"><i id="tkThanhIn"></i></div>
+      <p class="muted" id="tkChu" style="margin:0 0 4px"></p>
+      <div class="tkBieuDo" id="tkBieuDo" role="img" aria-label="Số từ đã biết trong 7 ngày gần nhất"></div>
+      <p class="muted" id="lichChu" style="margin:10px 0 6px"></p>
+      <div class="lichBao" id="lichBao"><div class="lich" id="lich" role="img" aria-label="Lịch học"></div></div>
+      <div class="lichCT muted" aria-hidden="true">Ít <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> Nhiều</div>
+      <div class="hang" style="align-items:center">
+        <label for="tkMucTieu" class="muted">Mục tiêu mỗi ngày (số từ đã biết):</label>
+        <input type="number" id="tkMucTieu" min="1" max="1000" inputmode="numeric" style="width:100px">
+      </div>
+      <p class="muted" style="margin:0;font-size:13px">Chỉ tính các từ bạn vuốt phải (✓ đã biết, khi bật «Theo dõi tiến độ») hoặc trả lời đúng trong trắc nghiệm. Vuốt trái (✕) không được tính. Ngày có ít nhất 1 từ đã biết được tính vào chuỗi ngày liên tiếp.</p>
+    </details>
+
+      <details class="hop" id="khuDongBo">
+        <summary><h2>☁ Đồng bộ điện thoại ↔ máy tính</h2></summary>
         <p class="muted" id="dbTrangThai" aria-live="polite" style="margin:-4px 0 10px">Chưa bật đồng bộ.</p>
         <div id="dbCaiDat">
           <p class="muted" style="margin-top:0">Cài một lần trên mỗi thiết bị. Dữ liệu được lưu vào một «gist» bí mật trong tài khoản GitHub của bạn.</p>
@@ -438,10 +481,10 @@
           <button id="dbTat" class="nut nguy">Tắt đồng bộ trên máy này</button>
         </div>
         <p class="muted" style="margin-bottom:0;font-size:13px">Token chỉ lưu trên thiết bị này. Khi cả hai máy cùng sửa lúc chưa kịp đồng bộ, app sẽ gộp hai bản lại, nên từ đã xóa ở một bên có thể xuất hiện lại.</p>
-      </section>
+      </details>
 
-      <section class="hop" id="khuGiaoDien">
-        <h2>🎨 Giao diện & Âm thanh</h2>
+      <details class="hop" id="khuGiaoDien">
+        <summary><h2>🎨 Giao diện & Âm thanh</h2></summary>
         <div class="hang" style="align-items:center">
           <label for="gdChuDe" class="muted">Màu nền:</label>
           <select id="gdChuDe">
@@ -468,17 +511,17 @@
             <option value="1.2">1.2x (Nhanh)</option>
           </select>
         </div>
-      </section>
+      </details>
 
-      <section class="hop" id="khuRac">
-        <h2>🗑 Thùng rác <span class="muted" id="racDem"></span></h2>
+      <details class="hop" id="khuRac">
+        <summary><h2>🗑 Thùng rác <span class="muted" id="racDem"></span></h2></summary>
         <p class="muted" id="racTrong" style="margin:0">Thùng rác trống. Từ và học phần bị xóa được giữ ở đây 30 ngày để bạn khôi phục.</p>
         <div id="racDS"></div>
         <div class="hang" id="racNut" style="display:none"><button id="racDon" class="nut nguy">Dọn sạch thùng rác</button></div>
-      </section>
+      </details>
 
-      <section class="hop" id="khuNhieu">
-        <h2>📦 Nhập nhiều học phần cùng lúc / Массовый импорт</h2>
+      <details class="hop" id="khuNhieu">
+        <summary><h2>📦 Nhập nhiều học phần cùng lúc / Массовый импорт</h2></summary>
         <p class="muted" style="margin-top:-4px">
           Gom nhiều học phần xuất từ Quizlet vào một lần dán. Dòng bắt đầu bằng <b>#</b> là tên thư mục,
           dòng bắt đầu bằng <b>##</b> là tên học phần, các dòng bên dưới là từ (Tab giữa từ và nghĩa, hoặc <b>привет - xin chào</b>, hoặc dấu phẩy).
@@ -493,7 +536,7 @@
           <button id="nhieuHuy" class="nut">Hủy nhập</button>
           <button id="nhieuNhap" class="nut tim" disabled>Nhập tất cả</button>
         </div>
-      </section>
+      </details>
     </main>
 
     <main class="manHinh" id="manTuDien" style="display:none">
@@ -563,10 +606,6 @@
     </div>
     <button id="btnThoatZen" class="nutZenThoat">✕ Thoát Zen (hoặc nhấn Esc)</button>
     <div class="duoi">
-      <div class="congTat">
-        <label class="theoDoi"><span>Theo dõi tiến độ</span><input type="checkbox" id="theoDoi" checked><i class="cong"></i></label>
-        <label class="theoDoi"><span>Luôn đọc từ Nga 🔊</span><input type="checkbox" id="tuDocNga" checked><i class="cong"></i></label>
-      </div>
       <div class="giuaNut">
         <button id="conHoc" class="tron do" aria-label="Đang học (phím ←)" title="Đang học (←)">✕</button>
         <button id="daThuoc" class="tron xanh" aria-label="Đã biết (phím →)" title="Đã biết (→)">✓</button>
@@ -578,13 +617,20 @@
         <button id="btnTron" class="tron nho" aria-label="Trộn thẻ (phím H)" title="Trộn thẻ (H)">🔀</button>
       </div>
     </div>
-    <div class="hang" style="justify-content:center">
-      <button id="btnChiChua" class="nut" aria-pressed="false">🎯 Chỉ học từ chưa thuộc (0)</button>
-      <button id="btnDatLai" class="nut">🔄 Đặt lại học phần</button>
-      <button id="btnNhan" class="nut">´ Dấu nhấn</button>
-      <button id="xoa" class="nut nguy">🗑 Xóa thẻ này</button>
-     <button id="btnZen" class="nut">🧘 Zen Mode</button>
-    </div>
+    <details class="hocThem" id="hocThem">
+      <summary>⋯ Tùy chọn khác / Ещё</summary>
+      <div class="congTat">
+        <label class="theoDoi"><span>Theo dõi tiến độ</span><input type="checkbox" id="theoDoi" checked><i class="cong"></i></label>
+        <label class="theoDoi"><span>Luôn đọc từ Nga 🔊</span><input type="checkbox" id="tuDocNga" checked><i class="cong"></i></label>
+      </div>
+      <div class="hang" style="justify-content:center">
+        <button id="btnChiChua" class="nut" aria-pressed="false">🎯 Chỉ học từ chưa thuộc (0)</button>
+        <button id="btnDatLai" class="nut">🔄 Đặt lại học phần</button>
+        <button id="btnNhan" class="nut">´ Dấu nhấn</button>
+        <button id="xoa" class="nut nguy">🗑 Xóa thẻ này</button>
+        <button id="btnZen" class="nut">🧘 Zen Mode</button>
+      </div>
+    </details>
   </div>
 
   <div class="thongBao" id="thongBao" role="status" aria-live="polite"></div>
@@ -638,8 +684,8 @@
     </section>
 
     <!-- ===== NHẬP HÀNG LOẠT (giống Quizlet) ===== -->
-    <section class="hop" id="khuNhap" data-tab="them">
-      <h2>📥 Nhập dữ liệu / Импорт</h2>
+    <details class="hop" id="khuNhap" data-tab="them">
+      <summary><h2>📥 Nhập dữ liệu / Импорт</h2></summary>
       <p class="muted" style="margin-top:-4px">
         Chép và dán dữ liệu ở đây (từ Word, Excel, Google Docs, Quizlet…). Nếu một dòng không có dấu tách đã chọn,
         app sẽ thử tách theo dạng <b>привет - xin chào</b>.
@@ -681,7 +727,7 @@
         <button id="huyNhap" class="nut">Hủy nhập</button>
         <button id="nhapNgay" class="nut tim" disabled>Nhập</button>
       </div>
-    </section>
+    </details>
 
     <section class="hop" data-tab="quiz">
       <h2>🎯 Trắc nghiệm / Тест</h2>
@@ -715,18 +761,18 @@
       </div>
     </section>
 
-    <section class="hop" data-tab="caidat">
-      <h2>´ Dấu nhấn / Ударение</h2>
+    <details class="hop" id="khuDauNhan" data-tab="caidat">
+      <summary><h2>´ Dấu nhấn / Ударение</h2></summary>
       <p class="muted" style="margin-top:-4px">Tra tự động từ Wiktionary (cần mạng) cho các từ của học phần đang mở chưa có dấu nhấn. App chỉ ghi khi tìm thấy đúng một cách nhấn. Từ có nhiều cách nhấn hoặc không tìm thấy sẽ được bỏ qua để bạn tự đặt bằng nút «´ Dấu nhấn» dưới thẻ. Từ chỉ có một nguyên âm hoặc có chữ ё không cần đánh dấu.</p>
       <div class="hang">
         <button id="nhanHang" class="nut tim">🔎 Tìm dấu nhấn cho học phần này</button>
         <button id="nhanDung" class="nut" style="display:none">⏹ Dừng</button>
       </div>
       <p class="muted" id="nhanTienDo" aria-live="polite" style="margin-bottom:0"></p>
-    </section>
+    </details>
 
-    <section class="hop" data-tab="caidat">
-      <h2>Tệp / Файл</h2>
+    <details class="hop" id="khuTep" data-tab="caidat">
+      <summary><h2>Tệp / Файл</h2></summary>
       <div class="hang">
         <button id="xuat" class="nut">⬇ Xuất học phần này</button>
         <button id="nhap" class="nut">⬆ Nhập tệp</button>
@@ -736,7 +782,7 @@
         <b>привет - xin chào</b> (hoặc dùng dấu phẩy, chấm phẩy, Tab). Với .txt / .csv và .json một học phần, từ được thêm vào học phần đang mở.
         Bản sao lưu toàn bộ sẽ được thêm vào thư viện hiện có, không ghi đè.
       </p>
-    </section>
+    </details>
 
   </main>
   </div>
@@ -809,7 +855,7 @@
     document.addEventListener("keydown", function (e) {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       var tag = e.target.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON" || tag === "SUMMARY") return;
       if (manHinh !== "hoc" || tabHoc !== "hoc") return;
       if (thoaiMo() || document.getElementById("hopNhan").style.display === "flex") return;
       if (e.code === "KeyX") { e.preventDefault(); batTatZen(); }
@@ -3698,6 +3744,21 @@
       try { localStorage.setItem("bangPhimAn", bangPhimAn ? "1" : "0"); } catch (loi) {}
       veBangPhim();
     };
+
+    // ===== KHỐI THU GỌN: nhớ trạng thái mở / đóng =====
+    (function () {
+      var luu = {};
+      try { luu = JSON.parse(localStorage.getItem("khoiMo") || "{}") || {}; } catch (loi) {}
+      var rong = window.matchMedia && matchMedia("(min-width: 900px) and (pointer: fine)").matches;
+      document.querySelectorAll("details[id]").forEach(function (d) {
+        if (luu[d.id] !== undefined) d.open = !!luu[d.id];
+        else if (rong && d.id === "hocThem") d.open = true;
+        d.addEventListener("toggle", function () {
+          luu[d.id] = d.open;
+          try { localStorage.setItem("khoiMo", JSON.stringify(luu)); } catch (loi) {}
+        });
+      });
+    })();
 
     // ===== KHỞI ĐỘNG =====
     veBangPhim();
