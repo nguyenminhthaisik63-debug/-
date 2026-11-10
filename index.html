@@ -441,12 +441,32 @@
       </section>
 
       <section class="hop" id="khuGiaoDien">
-        <h2>🎨 Giao diện</h2>
+        <h2>🎨 Giao diện & Âm thanh</h2>
         <div class="hang" style="align-items:center">
           <label for="gdChuDe" class="muted">Màu nền:</label>
-          <select id="gdChuDe"><option value="toi">Tối</option><option value="sang">Sáng</option><option value="tuDong">Tự động theo máy</option></select>
+          <select id="gdChuDe">
+            <option value="toi">Tối</option>
+            <option value="sang">Sáng</option>
+            <option value="tuDong">Tự động theo máy</option>
+          </select>
+
           <label for="gdCo" class="muted">Cỡ chữ trên thẻ:</label>
-          <select id="gdCo"><option value="0.85">Nhỏ</option><option value="1">Vừa</option><option value="1.2">Lớn</option><option value="1.45">Rất lớn</option></select>
+          <select id="gdCo">
+            <option value="0.85">Nhỏ</option>
+            <option value="1">Vừa</option>
+            <option value="1.2">Lớn</option>
+            <option value="1.45">Rất lớn</option>
+          </select>
+
+          <!-- THÊM Ô CHỌN TỐC ĐỘ ĐỌC NÀY -->
+          <label for="gdTocDo" class="muted">Tốc độ đọc tiếng Nga:</label>
+          <select id="gdTocDo">
+            <option value="0.65">0.65x (Chậm)</option>
+            <option value="0.75">0.75x (Vừa phải)</option>
+            <option value="0.85" selected>0.85x (Mặc định)</option>
+            <option value="1.0">1.0x (Tự nhiên)</option>
+            <option value="1.2">1.2x (Nhanh)</option>
+          </select>
         </div>
       </section>
 
@@ -1232,6 +1252,12 @@
     try { var tdn = localStorage.getItem("tuDocNga"); if (tdn !== null) tuDocNga = tdn === "1"; } catch (loi) {}
     var daDocKhoa = "";         // thẻ + mặt vừa đọc, để không đọc lặp lại khi vẽ lại màn hình
 
+    // 👉 THÊM BIẾN LƯU TỐC ĐỘ ĐỌC NÀY VÀO DƯỚI ĐÓ:
+    var tocDoDoc = 0.85;
+    try {
+      var tdd = localStorage.getItem("tocDoDocNga");
+      if (tdd !== null && !isNaN(parseFloat(tdd))) { tocDoDoc = parseFloat(tdd); }
+    } catch (loi) {}
     var the = document.getElementById("card");
     var matTruoc = document.getElementById("matTruoc");
     var matSau = document.getElementById("matSau");
@@ -1585,7 +1611,7 @@
       if (!chu || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") return false;
       var doc = new SpeechSynthesisUtterance(chu);
       doc.lang = "ru-RU";
-      doc.rate = 0.85;
+      doc.rate = tocDoDoc; // 👈 SỬA THÀNH BIẾN TỐC ĐỘ TÙY CHỈNH
       speechSynthesis.cancel();
       speechSynthesis.speak(doc);
       return true;
@@ -1619,6 +1645,20 @@
         cb.blur();   // để phím tắt (phím cách, mũi tên…) tiếp tục dùng được
         hienThi();   // cập nhật nút loa và đọc ngay thẻ đang hiện nếu vừa bật
       };
+    })();
+    // 👉 THÊM KHỐI XỬ LÝ SỰ KIỆN CHO TỐC ĐỘ ĐỌC NÀY VÀO DƯỚI:
+    (function () {
+      var selTocDo = document.getElementById("gdTocDo");
+      if (selTocDo) {
+        selTocDo.value = String(tocDoDoc);
+        selTocDo.onchange = function () {
+          tocDoDoc = parseFloat(this.value) || 0.85;
+          try { localStorage.setItem("tocDoDocNga", String(tocDoDoc)); } catch (loi) {}
+          if (danhSach.length > 0 && danhSach[viTri]) {
+            docNga(danhSach[viTri].nga); // Đọc thử ngay khi đổi tốc độ
+          }
+        };
+      }
     })();
 
     // ===== TOÀN MÀN HÌNH =====
