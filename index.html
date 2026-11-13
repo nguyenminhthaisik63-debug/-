@@ -392,10 +392,22 @@
       #btnLen, #btnXuong { display: none; }
     }
 
-    @media (prefers-reduced-motion: reduce) { #card, .cong, .cong::after, .thongBao { transition: none; } }
+   
+  @media (prefers-reduced-motion: reduce) { #card, .cong, .cong::after, .thongBao { transition: none; } }
+      /* ----- Cảnh báo lưu dữ liệu + nhắc sao lưu ----- */
+    #canhBaoLuu { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 70; align-items: center; justify-content: center;
+                  flex-wrap: wrap; gap: 10px; padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+                  background: var(--do); color: #fff; font-weight: 600; text-align: center; }
+    #canhBaoLuu .nut { background: #fff; color: #7f1d1d; }
+    .saoNhac { margin: 8px 0 0; }
+    .saoNhac.can { color: var(--cam); font-weight: 600; }
   </style>
 </head>
 <body>
+   <div id="canhBaoLuu" role="alert">
+    <span id="canhBaoLuuChu"></span>
+    <button id="canhBaoLuuNut" class="nut">💾 Sao lưu ngay</button>
+  </div>
 
   <div id="viewThuVien">
     <main class="manHinh" id="manThuVien">
@@ -442,6 +454,7 @@
         <button id="sao" class="nut">💾 Sao lưu toàn bộ thư viện</button>
         <button id="nhapTV" class="nut">⬆ Nhập bản sao lưu</button>
       </div>
+           <p class="muted saoNhac" id="saoNhac" aria-live="polite"></p>
     </section>
 
     <details class="hop" id="khuThongKe">
@@ -1262,13 +1275,21 @@
     try { suaLuc = Number(localStorage.getItem("thuVienSua")) || 0; } catch (loi) {}
     var dauVanCu = JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc, thongKe: thongKe, thungRac: thungRac });
 
+        var luuLoiMsg = "";   // khác rỗng nghĩa là lần ghi gần nhất vào máy bị lỗi
     function dbGhiLocal() {
       dauVanCu = JSON.stringify({ thuVien: thuVien, thuMuc: thuMuc, thongKe: thongKe, thungRac: thungRac });
       try {
         localStorage.setItem("thuVienNga", JSON.stringify({ thuVien: thuVien, hienTai: hienTai, thuMuc: thuMuc, thungRac: thungRac }));
         localStorage.setItem("thuVienSua", String(suaLuc));
         localStorage.setItem("thongKeNga", JSON.stringify(thongKe));
-      } catch (loi) {}
+        if (luuLoiMsg) { luuLoiMsg = ""; capNhatCanhBaoLuu(); }   // ghi lại được rồi thì tắt cảnh báo
+      } catch (loi) {
+        var het = loi && (loi.name === "QuotaExceededError" || loi.code === 22 || loi.code === 1014);
+        luuLoiMsg = het
+          ? "⚠ Bộ nhớ của trình duyệt đã đầy nên thay đổi gần nhất CHƯA được lưu."
+          : "⚠ Không ghi được dữ liệu vào máy (trình duyệt đang chặn lưu trữ?). Thay đổi gần nhất CHƯA được lưu.";
+        capNhatCanhBaoLuu();
+      }
     }
 
     function luu() {
@@ -3759,7 +3780,43 @@
         });
       });
     })();
+    // ===== AN TOÀN DỮ LIỆU: cảnh báo lưu lỗi, xin lưu trữ bền, nhắc sao lưu =====
+    function capNhatCanhBaoLuu() {
+      document.getElementById("canhBaoLuuChu").textContent = luuLoiMsg;
+      document.getElementById("canhBaoLuu").style.display = luuLoiMsg ? "flex" : "none";
+    }
+    document.getElementById("canhBaoLuuNut").onclick = function () { document.getElementById("sao").click(); };
 
+    // Xin trình duyệt giữ dữ liệu lâu dài (không tự xóa khi thiếu chỗ). Trình duyệt có thể từ chối nếu chưa cài app.
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persisted().then(function (da) { return da || navigator.storage.persist(); }).catch(function () {});
+    }
+
+    var NGAY_NHAC = 14;   // sau bao nhiêu ngày thì nhắc sao lưu
+    function saoLanCuoi() { try { return Number(localStorage.getItem("saoLuuLanCuoi")) || 0; } catch (loi) { return 0; } }
+    function tongTu() { var n = 0; thuVien.forEach(function (hp) { n += hp.tu.length; }); return n; }
+    function canNhacSao() {
+      var t = saoLanCuoi(), ngay = t ? Math.floor((Date.now() - t) / 86400000) : -1;
+      return { ngay: ngay, can: tongTu() >= 20 && (ngay < 0 || ngay >= NGAY_NHAC) };
+    }
+    function veSaoNhac() {
+      var el = document.getElementById("saoNhac"), k = canNhacSao();
+      el.className = "muted saoNhac" + (k.can ? " can" : "");
+      el.textContent = k.ngay < 0 ? "💾 Bạn chưa sao lưu lần nào. Nên bấm «Sao lưu» để có bản dự phòng."
+        : k.ngay === 0 ? "💾 Đã sao lưu hôm nay."
+        : "💾 Lần sao lưu gần nhất: " + k.ngay + " ngày trước" + (k.can ? ". Nên sao lưu lại." : ".");
+      var kyTu = 0;
+      try { kyTu = (localStorage.getItem("thuVienNga") || "").length; } catch (loi) {}
+      if (kyTu > 3500000) el.textContent += " ⚠ Bộ nhớ trình duyệt sắp đầy (khoảng " + Math.round(kyTu / 52428.8) + "%): hãy sao lưu và dọn thùng rác.";
+    }
+    document.getElementById("sao").addEventListener("click", function () {
+      try { localStorage.setItem("saoLuuLanCuoi", String(Date.now())); } catch (loi) {}
+      veSaoNhac();
+    });
+    veSaoNhac();
+    setTimeout(function () {
+      if (canNhacSao().can && manHinh === "thuvien") thongBao("💾 Đã lâu chưa sao lưu: bấm «Sao lưu toàn bộ thư viện» ở phần Thư viện.");
+    }, 2500);
     // ===== KHỞI ĐỘNG =====
     veBangPhim();
     veThuVien();
