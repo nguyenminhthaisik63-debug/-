@@ -401,6 +401,25 @@
     #canhBaoLuu .nut { background: #fff; color: #7f1d1d; }
     .saoNhac { margin: 8px 0 0; }
     .saoNhac.can { color: var(--cam); font-weight: 600; }
+        /* ----- Tiến độ ôn tập theo nhóm (1 · 3 · 7 · 14 · 30 · 60 · 120 ngày) ----- */
+    #srsTienDo { margin: 14px 0 4px; }
+    .srsNhom { border: 1px solid var(--vienHop); border-radius: 14px; margin: 8px 0; background: var(--nen); }
+    .srsNhom > summary { cursor: pointer; padding: 12px 14px; list-style: none; }
+    .srsNhom > summary::-webkit-details-marker { display: none; }
+    .srsNhom[open] > summary { border-bottom: 1px solid var(--vienHop); }
+    .srsDau { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    .srsTen { font-weight: 700; }
+    .srsSo { color: var(--phu); font-size: 14px; }
+    .srsDS { max-height: 320px; overflow: auto; }
+    .srsDS > p { margin: 0; padding: 10px 14px; }
+    .srsTu { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 14px; padding: 8px 14px;
+             border-bottom: 1px solid var(--vienHop); overflow-wrap: anywhere; }
+    .srsTu:last-child { border-bottom: 0; }
+    .srsTu small { grid-column: 1 / -1; color: var(--phu); font-size: 12px; }
+    .srsTu small.den { color: var(--cam); font-weight: 600; }
+    @media (max-width: 640px) { .srsTu { grid-template-columns: 1fr; } }
+
+
   </style>
 </head>
 <body>
@@ -419,6 +438,8 @@
     <section class="hop" id="khuSRS">
       <h2>🧠 Ôn tập hôm nay</h2>
       <div class="tongSo" id="srsO" style="margin-top:0" aria-label="Lịch ôn tập"></div>
+            <div id="srsTienDo" hidden></div>
+
       <p class="muted" id="srsChu" style="margin:12px 0" aria-live="polite"></p>
       <div class="hang" style="align-items:center">
         <button id="srsBatDau" class="nut tim">▶ Bắt đầu ôn</button>
@@ -1229,6 +1250,8 @@
         el.appendChild(b); el.appendChild(t);
         vung.appendChild(el);
       });
+            vung.appendChild(capNhatTienDoSRS());   // ô «Tiến độ»: bấm để xem các nhóm ôn
+
       var chu;
       if (p.list.length > 0) {
         chu = "Phiên hôm nay: " + p.denChon + " từ đến hạn" + (p.moiChon ? " + " + p.moiChon + " từ mới" : "") + "." +
@@ -1246,6 +1269,135 @@
       nut.textContent = "▶ Bắt đầu ôn" + (p.list.length ? " (" + p.list.length + " từ)" : "");
       var oMoi = document.getElementById("srsMoi");
       if (document.activeElement !== oMoi) oMoi.value = thongKe.moi;
+    }
+
+    // ===== TIẾN ĐỘ ÔN TẬP: các nhóm chưa ôn · 1 · 3 · 7 · 14 · 30 · 60 · 120 ngày =====
+    var srsTienDoMo = false;    // đang mở danh sách tiến độ?
+    var srsNhomMo = {};         // nhóm nào đang bung ra (khóa → true)
+    var SRS_NHOM_TOI_DA = 200;  // tối đa số từ liệt kê trong một nhóm
+
+    function bacCuaTu(t) {      // -1 = chưa được ôn; 0..7 = bậc hiện tại
+      return t.han ? Math.min(Math.max(t.ob || 0, 0), SRS_KHOANG.length - 1) : -1;
+    }
+
+    function tenNhomSRS(b) {
+      return b < 0 ? "Chưa được ôn" : (b === 0 ? "Vừa quên · ôn lại ngay" : "Nhóm " + SRS_KHOANG[b] + " ngày");
+    }
+
+    // Đếm số từ ở mỗi bậc (một lượt duyệt qua mọi học phần)
+    function demBacSRS() {
+      var bay = Date.now(), d = { tong: 0, chua: 0, diem: 0, bac: [], den: [] }, i;
+      for (i = 0; i < SRS_KHOANG.length; i++) { d.bac.push(0); d.den.push(0); }
+      thuVien.forEach(function (hp) {
+        hp.tu.forEach(function (t) {
+          d.tong++;
+          var b = bacCuaTu(t);
+          if (b < 0) { d.chua++; return; }
+          d.bac[b]++;
+          d.diem += b;
+          if (t.han <= bay) d.den[b]++;
+        });
+      });
+      // Tiến độ = trung bình bậc của mọi từ ÷ bậc cao nhất (từ chưa ôn tính 0)
+      d.phanTram = d.tong ? Math.round(d.diem / ((SRS_KHOANG.length - 1) * d.tong) * 100) : 0;
+      return d;
+    }
+
+    // Một nhóm trong danh sách: bấm vào để xem các từ bên trong
+    function veNhomSRS(b, d) {
+      var khoa = String(b), n = b < 0 ? d.chua : d.bac[b];
+      var det = document.createElement("details");
+      det.className = "srsNhom";
+      var sum = document.createElement("summary");
+      var dau = document.createElement("div");
+      dau.className = "srsDau";
+      var ten = document.createElement("span"); ten.className = "srsTen"; ten.textContent = tenNhomSRS(b);
+      var so = document.createElement("span"); so.className = "srsSo";
+      so.textContent = n + " từ" + (b >= 0 && d.den[b] ? " · " + d.den[b] + " đến hạn" : "");
+      dau.appendChild(ten); dau.appendChild(so);
+      var thanh = document.createElement("div"); thanh.className = "hpBar";
+      var vach = document.createElement("i"); vach.style.width = (d.tong ? Math.round(n / d.tong * 100) : 0) + "%";
+      thanh.appendChild(vach);
+      sum.appendChild(dau); sum.appendChild(thanh);
+      det.appendChild(sum);
+      var ds = document.createElement("div");
+      ds.className = "srsDS";
+      det.appendChild(ds);
+
+      function dien() {   // chỉ liệt kê các từ khi nhóm được mở
+        ds.innerHTML = "";
+        var bay = Date.now(), ls = [];
+        thuVien.forEach(function (hp) {
+          hp.tu.forEach(function (t) { if (bacCuaTu(t) === b) ls.push({ t: t, hp: hp }); });
+        });
+        if (b >= 0) ls.sort(function (x, y) { return x.t.han - y.t.han; });
+        if (ls.length === 0) {
+          var rong = document.createElement("p");
+          rong.className = "muted";
+          rong.textContent = "Chưa có từ nào ở nhóm này.";
+          ds.appendChild(rong);
+          return;
+        }
+        ls.slice(0, SRS_NHOM_TOI_DA).forEach(function (x) {
+          var dong = document.createElement("div");
+          dong.className = "srsTu";
+          var a = document.createElement("span"); a.textContent = hienNga(x.t); a.lang = "ru";
+          var v = document.createElement("span"); v.textContent = x.t.viet;
+          var nho = document.createElement("small");
+          if (b < 0) nho.textContent = "Học phần: " + x.hp.ten;
+          else if (x.t.han <= bay) { nho.textContent = "Đến hạn ôn · " + x.hp.ten; nho.className = "den"; }
+          else nho.textContent = "Ôn lại vào " + new Date(x.t.han).toLocaleDateString("vi-VN") + " · " + x.hp.ten;
+          dong.appendChild(a); dong.appendChild(v); dong.appendChild(nho);
+          ds.appendChild(dong);
+        });
+        if (ls.length > SRS_NHOM_TOI_DA) {
+          var them = document.createElement("p");
+          them.className = "muted";
+          them.textContent = "… và " + (ls.length - SRS_NHOM_TOI_DA) + " từ nữa";
+          ds.appendChild(them);
+        }
+      }
+
+      det.addEventListener("toggle", function () { srsNhomMo[khoa] = det.open; if (det.open) dien(); });
+      if (srsNhomMo[khoa]) { det.open = true; dien(); }
+      return det;
+    }
+
+    // Vẽ danh sách các nhóm (chỉ khi đang mở)
+    function veTienDoSRS(d) {
+      var panel = document.getElementById("srsTienDo");
+      panel.hidden = !srsTienDoMo;
+      if (!srsTienDoMo) return;
+      panel.innerHTML = "";
+      var chu = document.createElement("p");
+      chu.className = "muted";
+      chu.style.cssText = "margin:0 0 8px;font-size:13px";
+      chu.textContent = "Mỗi từ đi qua các nhóm 1 → 3 → 7 → 14 → 30 → 60 → 120 ngày. Tiến độ = trung bình bậc của mọi từ ÷ 7 (từ chưa ôn tính 0). Bấm vào một nhóm để xem các từ trong đó.";
+      panel.appendChild(chu);
+      var thuTu = [-1];
+      if (d.bac[0] > 0) thuTu.push(0);   // chỉ hiện «Vừa quên» khi đang có từ
+      for (var b = 1; b < SRS_KHOANG.length; b++) thuTu.push(b);
+      thuTu.forEach(function (b) { panel.appendChild(veNhomSRS(b, d)); });
+    }
+
+    // Tạo ô «Tiến độ» (đặt cạnh các ô khác trong «Ôn tập hôm nay») và cập nhật danh sách nếu đang mở
+    function capNhatTienDoSRS() {
+      var d = demBacSRS();
+      var o = document.createElement("button");
+      o.type = "button";
+      o.className = "oSo chinh";
+      o.setAttribute("aria-controls", "srsTienDo");
+      var b = document.createElement("b"); b.textContent = d.phanTram + "%";
+      var t = document.createElement("span");
+      function nhan() {
+        o.setAttribute("aria-expanded", srsTienDoMo);
+        t.textContent = "Tiến độ ôn · " + (srsTienDoMo ? "thu gọn ▴" : "xem các nhóm ▾");
+      }
+      nhan();
+      o.appendChild(b); o.appendChild(t);
+      o.onclick = function () { srsTienDoMo = !srsTienDoMo; nhan(); veTienDoSRS(d); };
+      veTienDoSRS(d);
+      return o;
     }
 
     function batDauSRS() {
