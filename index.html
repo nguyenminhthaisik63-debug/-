@@ -419,7 +419,11 @@
     .srsTu small.den { color: var(--cam); font-weight: 600; }
     @media (max-width: 640px) { .srsTu { grid-template-columns: 1fr; } }
 
-
+    /* ----- Nút đi tiếp khi xong phiên ôn / xong học phần ----- */
+    .diTiep { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; margin: 18px 0 4px; }
+    .diTiep[hidden] { display: none; }
+    .diTiep > p { flex-basis: 100%; text-align: center; margin: 0; }
+    .diTiep .nut { padding: 12px 20px; font-size: 16px; }
   </style>
 </head>
 <body>
@@ -638,6 +642,7 @@
       <button id="btnSua" class="goc sua" aria-label="Sửa thẻ (phím E)" title="Sửa (E)">✏</button>
       <div class="phimTat"><span class="maytinh">⌨ <b>Phím tắt</b> Nhấn <kbd>phím cách</kbd> hoặc </span>nhấp vào thẻ để lật<span class="camUng"> · vuốt phải: đã biết, trái: đang học</span></div>
     </div>
+       <div id="diTiep" class="diTiep" hidden></div>
     <button id="btnThoatZen" class="nutZenThoat">✕ Thoát Zen (hoặc nhấn Esc)</button>
     <div class="duoi">
       <div class="giuaNut">
@@ -1514,7 +1519,56 @@
     function xongHet() {
       return chiChuaThuoc && danhSach.length > 0 && !danhSach.some(theHopLe);
     }
+    // ===== XONG PHIÊN ÔN / XONG HỌC PHẦN: nút đi tiếp =====
+    // Học phần kế tiếp (cùng thư mục với học phần hiện tại, theo thứ tự trong thư viện) còn từ chưa thuộc; -1 nếu không còn
+    function hocPhanSauNay() {
+      var mucHienTai = thuVien[hienTai].mucId || null;
+      for (var i = hienTai + 1; i < thuVien.length; i++) {
+        var hp = thuVien[i];
+        if ((hp.mucId || null) === mucHienTai && hp.tu.some(function (t) { return !t.thuoc; })) return i;
+      }
+      return -1;
+    }
 
+    function capNhatDiTiep() {
+      var bang = document.getElementById("diTiep");
+      var xong = manHinh === "hoc" && xongHet();
+      bang.hidden = !xong;
+      if (!xong) return;
+      bang.innerHTML = "";
+      function chuThich(van) {
+        var p = document.createElement("p");
+        p.className = "muted";
+        p.textContent = van;
+        bang.appendChild(p);
+      }
+      function nut(chu, lop, lamGi) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = lop;
+        b.textContent = chu;
+        b.onclick = lamGi;
+        bang.appendChild(b);
+      }
+      if (cheDoSRS) {                                    // xong một phiên «Ôn hôm nay»
+        var p = phienSRS();
+        if (p.list.length > 0) {
+          nut("▶ Ôn tập tiếp (" + p.list.length + " từ)", "nut tim", batDauSRS);
+        } else {
+          chuThich("🎉 Hôm nay không còn từ nào cần ôn." +
+            (p.moiTong > 0 && thongKe.moi - p.moiHomNay <= 0 ? " Muốn học thêm từ mới, hãy tăng «Từ mới mỗi ngày» trong Thư viện." : ""));
+        }
+      } else {                                           // xong một học phần
+        var ke = hocPhanSauNay();
+        if (ke >= 0) {
+          var chuaThuoc = thuVien[ke].tu.filter(function (t) { return !t.thuoc; }).length;
+          nut("⏭ Học tiếp: «" + thuVien[ke].ten + "» (" + chuaThuoc + " từ chưa thuộc)", "nut tim", function () { moHocPhan(ke); });
+        } else {
+          chuThich("Đã hết học phần cần học tiếp trong thư mục này. 🎉");
+        }
+      }
+      nut("📚 Trở về thư viện", "nut", function () { hienManHinh("thuvien"); window.scrollTo({ top: 0 }); });
+    }
     // Đi hết một lượt: chuyển sang chỉ học các từ chưa thuộc
     function hetVong() {
       var tong = danhSach.length;
@@ -1568,7 +1622,7 @@
       nhanVong.textContent = danhSach.length === 0 ? "" :
         "Vòng " + vongSo + (chiChuaThuoc ? " · chỉ từ chưa thuộc" : "") +
         " · đã qua " + daQuaVong.size + " / " + poolVong.size + " thẻ";
-
+      capNhatDiTiep();   // xong phiên / xong học phần thì hiện nút đi tiếp
       var nutSao = document.getElementById("btnSao");
       capNhatDongMucTieu();
       document.getElementById("nghe").style.display = tuDocNga ? "none" : "";   // luôn tự đọc thì không cần nút loa
