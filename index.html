@@ -445,7 +445,6 @@
       background-image:
         radial-gradient(900px 500px at 15% -10%, rgba(56, 189, 248, .12), transparent 60%),
         radial-gradient(700px 420px at 90% 10%, rgba(16, 185, 129, .08), transparent 55%);
-      background-attachment: fixed;
       -webkit-font-smoothing: antialiased;
     }
     :root[data-theme="light"] body {
@@ -467,11 +466,14 @@
     }
     .vien:hover { background: var(--hopHover); border-color: var(--timNhat); }
 
-    /* Thẻ Flashcard 3D */
+    /* Thẻ Flashcard 3D - tối ưu GPU lật siêu mượt */
     #card {
-      transition: transform .5s cubic-bezier(.22, .61, .36, 1);
+      transition: transform .22s cubic-bezier(.2, .8, .2, 1);
       transform-style: preserve-3d;
+      will-change: transform;
     }
+    .mat.truoc { transform: rotateY(0deg) translateZ(0); }
+    .mat.sau { transform: rotateY(180deg) translateZ(0); }
     .mat {
       border: 1.5px solid var(--vienHop);
       border-radius: 24px 24px 0 0;
@@ -2056,10 +2058,13 @@
     }
 
     var vuaVuot = false;   // vừa vuốt xong thì bỏ qua cú chạm để thẻ không bị lật nhầm
+    var henDocLat = null;
     the.onclick = function () {
-      if (vuaVuot || danhSach.length === 0) return;
+      if (vuaVuot || danhSach.length === 0 || xongHet()) return;
       dangLat = !dangLat;
-      hienThi();
+      the.classList.toggle("lat", dangLat);
+      if (henDocLat) clearTimeout(henDocLat);
+      henDocLat = setTimeout(tuDocNeuCan, 230);
     };
     document.getElementById("sau").onclick = function () { chuyenThe(1); };
     document.getElementById("truoc").onclick = function () { chuyenThe(-1); };
