@@ -581,6 +581,37 @@
     ::-webkit-scrollbar-thumb { background: var(--vien); border-radius: 999px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--phu); }
 
+  
+    /* ----- Ẩn nút gắn sao ở góc phải thẻ & căn lại nút Sửa ----- */
+    #btnSao { display: none !important; }
+    .goc.sua { right: 66px; }
+    .khungThe.khongLoa .goc.sua { right: 18px; }
+    @media (max-width: 420px) {
+      .goc.sua { right: 54px; }
+      .khungThe.khongLoa .goc.sua { right: 8px; }
+    }
+
+    /* ----- Chế độ Zen tối giản ----- */
+    #khuHoc.zenMode #btnGoiY,
+    #khuHoc.zenMode .phimTat { display: none !important; }
+    #khuHoc.zenMode #card { inset: 0; }
+    #khuHoc.zenMode .mat { border-radius: 24px; }
+    #khuHoc.zenMode .nutZenThoat {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      margin: 18px auto 0;
+      border-radius: 50%;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    /* Sửa màu chữ trong phím <kbd> thanh xanh để không bị trắng trên nền trắng */
+    .phimTat kbd { color: #0f172a; border-color: rgba(15, 23, 42, .25); }
+
   </style>
 </head>
 <body>
@@ -801,7 +832,7 @@
     </div>
     <div id="hopCachHoc" class="hopCach" hidden></div>
        <div id="diTiep" class="diTiep" hidden></div>
-    <button id="btnThoatZen" class="nutZenThoat">✕ Thoát Zen (hoặc nhấn Esc)</button>
+    <button id="btnThoatZen" class="nutZenThoat" title="Thoát Zen (Esc)" aria-label="Thoát Zen (Esc)">✕</button>
     <div class="duoi">
       <div class="giuaNut">
         <button id="conHoc" class="tron do" aria-label="Đang học (phím ←)" title="Đang học (←)">✕</button>
