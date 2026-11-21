@@ -424,6 +424,21 @@
     .diTiep[hidden] { display: none; }
     .diTiep > p { flex-basis: 100%; text-align: center; margin: 0; }
     .diTiep .nut { padding: 12px 20px; font-size: 16px; }
+  
+    .viDuThe { margin-top: 10px; font-size: clamp(14px, 2.2vw, 17px); font-style: italic; color: var(--phu); font-weight: 400; line-height: 1.4; }
+    .nhanCachThe { margin-top: 6px; display: inline-block; font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: rgba(124, 58, 237, .14); color: var(--tim); font-weight: 600; }
+    .hopCach { margin: 10px auto 0; max-width: 520px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--vien); background: var(--nenHop); text-align: center; }
+    .hopCach .tieuDeCach { font-size: 13px; color: var(--phu); margin-bottom: 8px; font-weight: 600; }
+    .dsCach { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+    .nutCach { border: 1px solid var(--vien); background: var(--nen); color: var(--chu); border-radius: 999px; padding: 5px 11px; font-size: 13px; cursor: pointer; font-weight: 500; transition: .15s; }
+    .nutCach.chon { background: var(--tim); color: #fff; border-color: var(--tim); }
+    .nutCach.dung { background: #16a34a; color: #fff; border-color: #16a34a; }
+    .nutCach.sai { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .themMoRong { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+    .themMoRong input { flex: 1; min-width: 220px; }
+    .themMoRong select { min-width: 150px; }
+    .cachChonWrap { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; width: 100%; }
+
   </style>
 </head>
 <body>
@@ -642,6 +657,7 @@
       <button id="btnSua" class="goc sua" aria-label="Sửa thẻ (phím E)" title="Sửa (E)">✏</button>
       <div class="phimTat"><span class="maytinh">⌨ <b>Phím tắt</b> Nhấn <kbd>phím cách</kbd> hoặc </span>nhấp vào thẻ để lật<span class="camUng"> · vuốt phải: đã biết, trái: đang học</span></div>
     </div>
+    <div id="hopCachHoc" class="hopCach" hidden></div>
        <div id="diTiep" class="diTiep" hidden></div>
     <button id="btnThoatZen" class="nutZenThoat">✕ Thoát Zen (hoặc nhấn Esc)</button>
     <div class="duoi">
@@ -719,6 +735,27 @@
         <input type="text" id="oViet" placeholder="Nghĩa tiếng Việt" autocomplete="off">
         <button id="them" class="nut tim">Thêm</button>
       </div>
+      <div class="themMoRong">
+        <input type="text" id="oViDu" placeholder="Ví dụ tiếng Nga (không bắt buộc)" lang="ru" autocomplete="off">
+        <select id="oLoai" aria-label="Từ loại">
+          <option value="auto">Tự đoán từ loại</option>
+          <option value="dt">Danh từ</option>
+          <option value="dgt">Động từ</option>
+          <option value="tt">Tính từ</option>
+          <option value="tr">Trạng từ</option>
+          <option value="st">Số từ</option>
+          <option value="dait">Đại từ</option>
+          <option value="gt">Giới từ</option>
+          <option value="lt">Liên từ</option>
+          <option value="tro">Trợ từ</option>
+          <option value="tan">Thán từ</option>
+          <option value="khac">Cụm từ / khác</option>
+        </select>
+      </div>
+      <div id="oCachWrap" class="cachChonWrap" hidden>
+        <span class="muted" style="font-size:13px">Động từ đi với cách:</span>
+        <div class="dsCach" id="oCachList"></div>
+      </div>
       <p class="muted" id="oTrung" style="margin:8px 0 0;min-height:21px" aria-live="polite"></p>
     </section>
 
@@ -794,6 +831,7 @@
           <input type="text" id="oGo" placeholder="Gõ đáp án rồi nhấn Enter" aria-label="Đáp án của bạn" autocomplete="off" spellcheck="false">
           <button id="nutKiemTra" class="nut tim">Kiểm tra</button>
         </div>
+        <div id="quizCachWrap" class="hopCach" hidden></div>
         <p id="ketQua" style="min-height:24px" aria-live="polite"></p>
         <button id="cauTiep" class="nut tim" style="display:none">Câu tiếp →</button>
         <button id="dongQuiz" class="nut">Đóng</button>
@@ -955,8 +993,12 @@
       (Array.isArray(mang) ? mang : []).forEach(function (t) {
         if (t && t.nga && t.viet) {
           var tn = tachNhan(t.nga), np = t.nhan ? tachNhan(t.nhan) : null;
+          var cachSach = Array.isArray(t.cach) ? t.cach.map(function (c) { return parseInt(c, 10); }).filter(function (c) { return c >= 1 && c <= 6; }) : [];
+          cachSach = cachSach.filter(function (c, idx) { return cachSach.indexOf(c) === idx; }).sort(function (a, b) { return a - b; });
           kq.push({ nga: tn.nga, nhan: chuanNhan(tn.nga, (np && np.nhan) || tn.nhan), viet: String(t.viet), thuoc: !!t.thuoc, sao: !!t.sao,
+                    vidu: t.vidu ? String(t.vidu).trim() : undefined,
                     loai: t.loai ? String(t.loai) : undefined, loaiDoan: t.loaiDoan ? true : undefined,
+                    cach: cachSach.length ? cachSach : undefined,
                     ob: Number.isFinite(t.ob) ? t.ob : undefined, han: Number.isFinite(t.han) ? t.han : undefined,
                     oc: Number.isFinite(t.oc) ? t.oc : undefined, dau: Number.isFinite(t.dau) ? t.dau : undefined });
         }
@@ -1587,6 +1629,101 @@
       hienThi();
     }
 
+
+    // ===== CÁCH CỦA ĐỘNG TỪ & VÍ DỤ =====
+    var CACH_NGA = [
+      { id: 1, ten: "Cách 1", ky: "И.п.", hoi: "Кто? Что?" },
+      { id: 2, ten: "Cách 2", ky: "Р.п.", hoi: "Кого? Чего?" },
+      { id: 3, ten: "Cách 3", ky: "Д.п.", hoi: "Кому? Чему?" },
+      { id: 4, ten: "Cách 4", ky: "В.п.", hoi: "Кого? Что?" },
+      { id: 5, ten: "Cách 5", ky: "Т.п.", hoi: "Кем? Чем?" },
+      { id: 6, ten: "Cách 6", ky: "П.п.", hoi: "О ком? О чём? Где?" }
+    ];
+    var cachChonHoc = new Set();
+    var theCachHienTai = null;
+
+    function chuanCach(arr) {
+      if (!Array.isArray(arr)) return [];
+      var u = [];
+      arr.forEach(function (x) {
+        var n = parseInt(x, 10);
+        if (n >= 1 && n <= 6 && u.indexOf(n) === -1) u.push(n);
+      });
+      return u.sort(function (a, b) { return a - b; });
+    }
+    function moTaCach(arr) {
+      var c = chuanCach(arr);
+      if (!c.length) return "";
+      return c.map(function (id) {
+        var o = CACH_NGA[id - 1];
+        return o ? (o.ten + " (" + o.ky + ")") : ("Cách " + id);
+      }).join(", ");
+    }
+    function laDongTuCoCach(tu) {
+      return !!(tu && tu.loai === "dgt" && Array.isArray(tu.cach) && tu.cach.length > 0);
+    }
+    function khopCach(chonSet, dapAnArr) {
+      var d = chuanCach(dapAnArr);
+      if (chonSet.size !== d.length) return false;
+      return d.every(function (c) { return chonSet.has(c); });
+    }
+    function veNoiDungMat(el, chinh, phu, badgeText) {
+      el.innerHTML = "";
+      var d = document.createElement("div");
+      d.textContent = chinh;
+      el.appendChild(d);
+      if (badgeText) {
+        var b = document.createElement("div");
+        b.className = "nhanCachThe";
+        b.textContent = badgeText;
+        el.appendChild(b);
+      }
+      if (phu) {
+        var v = document.createElement("div");
+        v.className = "viDuThe";
+        v.lang = "ru";
+        v.textContent = "Ví dụ: " + phu;
+        el.appendChild(v);
+      }
+    }
+    function veHopCachHoc(tu) {
+      var box = document.getElementById("hopCachHoc");
+      if (!box) return;
+      if (!tu || xongHet() || danhSach.length === 0 || !laDongTuCoCach(tu)) {
+        box.hidden = true;
+        box.innerHTML = "";
+        theCachHienTai = null;
+        cachChonHoc.clear();
+        return;
+      }
+      if (theCachHienTai !== tu) {
+        theCachHienTai = tu;
+        cachChonHoc.clear();
+      }
+      box.hidden = false;
+      box.innerHTML = "";
+      var td = document.createElement("div");
+      td.className = "tieuDeCach";
+      td.textContent = "Động từ này đi với cách mấy? (chọn trước khi bấm ✓ Đã biết)";
+      box.appendChild(td);
+      var ds = document.createElement("div");
+      ds.className = "dsCach";
+      CACH_NGA.forEach(function (c) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "nutCach" + (cachChonHoc.has(c.id) ? " chon" : "");
+        btn.textContent = c.ten + " (" + c.ky + ")";
+        btn.title = c.hoi;
+        btn.onclick = function () {
+          if (cachChonHoc.has(c.id)) cachChonHoc.delete(c.id);
+          else cachChonHoc.add(c.id);
+          btn.classList.toggle("chon", cachChonHoc.has(c.id));
+        };
+        ds.appendChild(btn);
+      });
+      box.appendChild(ds);
+    }
+
     function hienThi() {
       if (nguonVong !== danhSach) {            // đổi sang học phần khác → bắt đầu vòng mới
         nguonVong = danhSach;
@@ -1632,6 +1769,7 @@
       if (danhSach.length === 0) {
         matTruoc.textContent = "Học phần này chưa có từ nào. Hãy thêm từ ở bên dưới!";
         matSau.textContent = "";
+        veHopCachHoc(null);
         goiYChu.textContent = "";
         the.classList.remove("lat", "thuoc");
         the.classList.add("rong");
@@ -1650,6 +1788,7 @@
             "hoặc tắt «🎯 Chỉ học từ chưa thuộc» để xem lại tất cả.";
         matSau.textContent = "";
         goiYChu.textContent = "";
+        veHopCachHoc(null);
         dangLat = false;
         the.classList.remove("lat", "thuoc");
         the.classList.add("rong");
@@ -1661,9 +1800,15 @@
       }
 
       var tu = danhSach[viTri];
-      matTruoc.textContent = chieu === "nga" ? hienNga(tu) : tu.viet;
-      matSau.textContent = chieu === "nga" ? tu.viet : hienNga(tu);
-      goiYChu.textContent = hienGoiY ? taoGoiY(matSau.textContent) : "";
+      var truocText = chieu === "nga" ? hienNga(tu) : tu.viet;
+      var sauText = chieu === "nga" ? tu.viet : hienNga(tu);
+      var badgeSau = tu.loai === "dgt"
+        ? (laDongTuCoCach(tu) ? ("Động từ · " + moTaCach(tu.cach)) : "Động từ (bấm ✏ để gán cách)")
+        : "";
+      matTruoc.textContent = truocText;
+      veNoiDungMat(matSau, sauText, tu.vidu || "", badgeSau);
+      goiYChu.textContent = hienGoiY ? taoGoiY(sauText) : "";
+      veHopCachHoc(tu);
       the.classList.remove("rong");
       the.classList.toggle("lat", dangLat);
       the.classList.toggle("thuoc", tu.thuoc);
@@ -1696,6 +1841,16 @@
         return;
       }
       var tu = danhSach[viTri];
+      if (giaTri && laDongTuCoCach(tu)) {
+        if (cachChonHoc.size === 0) {
+          thongBao("⚠️ Động từ này cần chọn cách đi kèm trước khi bấm «Đã biết»!");
+          return;
+        }
+        if (!khopCach(cachChonHoc, tu.cach)) {
+          thongBao("✗ Sai cách! «" + hienNga(tu) + "» đi với: " + moTaCach(tu.cach));
+          giaTri = false;
+        }
+      }
       lichSu = { hocPhan: hienTai, chiSo: viTri, cu: tu.thuoc, coQuyet: quyetVong.has(tu), quyetCu: quyetVong.get(tu), srs: laySRS(tu) };
       quyetVong.set(tu, giaTri);
       if (document.getElementById("theoDoi").checked) {
@@ -1811,15 +1966,25 @@
     function suaThe() {
       if (danhSach.length === 0 || xongHet()) return;
       var tu = danhSach[viTri];
+      var tuyLoai = [["", "(Chưa phân loại)"]].concat(LOAI);
       thoai({ tieuDe: "✏ Sửa thẻ", noiDung: "Gõ ' ngay sau nguyên âm để đặt dấu nhấn, ví dụ вода'.", ok: "Lưu",
-              truong: [{ nhan: "Tiếng Nga / По-русски", giaTri: hienNga(tu), lang: "ru" },
-                       { nhan: "Nghĩa tiếng Việt / Значение", giaTri: tu.viet }] }, function (v) {
-        var nga = v[0].trim(), viet = v[1].trim();
-        if (nga === "" || viet === "") { baoTin("Không được để trống!"); return; }
+              truong: [
+                { nhan: "Tiếng Nga / По-русски", giaTri: hienNga(tu), lang: "ru" },
+                { nhan: "Nghĩa tiếng Việt / Значение", giaTri: tu.viet },
+                { nhan: "Ví dụ / Пример (không bắt buộc)", giaTri: tu.vidu || "", lang: "ru" },
+                { nhan: "Từ loại / Часть речи", loai: "select", giaTri: tu.loai || "", tuyChon: tuyLoai },
+                { nhan: "Động từ đi với cách (nếu là động từ)", loai: "cach", giaTri: tu.cach || [] }
+              ] }, function (v) {
+        var nga = v[0].trim(), viet = v[1].trim(), vidu = v[2].trim(), loaiMoi = v[3], cachMoi = chuanCach(v[4]);
+        if (nga === "" || viet === "") { baoTin("Không được để trống từ và nghĩa!"); return; }
         var tn = tachNhan(nga);
         tu.nga = tn.nga;
         if (tn.nhan) tu.nhan = tn.nhan; else delete tu.nhan;
         tu.viet = viet;
+        if (vidu) tu.vidu = vidu; else delete tu.vidu;
+        if (loaiMoi) { tu.loai = loaiMoi; delete tu.loaiDoan; } else { delete tu.loai; delete tu.loaiDoan; }
+        if (loaiMoi === "dgt" && cachMoi.length) tu.cach = cachMoi; else delete tu.cach;
+        theCachHienTai = null;
         luu();
         hienThi();
       });
@@ -2009,14 +2174,60 @@
       return them;
     }
 
+    var cachThemChon = new Set();
+    (function () {
+      var list = document.getElementById("oCachList");
+      var wrap = document.getElementById("oCachWrap");
+      var sel = document.getElementById("oLoai");
+      var oNga = document.getElementById("oNga");
+      CACH_NGA.forEach(function (c) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "nutCach";
+        b.textContent = c.ten + " (" + c.ky + ")";
+        b.title = c.hoi;
+        b.onclick = function () {
+          if (cachThemChon.has(c.id)) cachThemChon.delete(c.id);
+          else cachThemChon.add(c.id);
+          b.classList.toggle("chon", cachThemChon.has(c.id));
+        };
+        list.appendChild(b);
+      });
+      function capNhatHienCachThem() {
+        var v = sel.value;
+        var laDgt = v === "dgt" || (v === "auto" && doanTuLoai(oNga.value) === "dgt");
+        wrap.hidden = !laDgt;
+      }
+      sel.onchange = capNhatHienCachThem;
+      oNga.addEventListener("input", capNhatHienCachThem);
+      window._capNhatHienCachThem = capNhatHienCachThem;
+    })();
+
     document.getElementById("them").onclick = function () {
       var nga = document.getElementById("oNga").value.trim();
       var viet = document.getElementById("oViet").value.trim();
-      if (nga === "" || viet === "") { baoTin("Nhập đủ cả hai ô nhé!"); return; }
+      var vidu = document.getElementById("oViDu").value.trim();
+      var loaiChon = document.getElementById("oLoai").value;
+      if (nga === "" || viet === "") { baoTin("Nhập đủ từ tiếng Nga và nghĩa tiếng Việt nhé!"); return; }
       function them() {
-        danhSach.push(taoThe(nga, viet));
+        var theMoi = taoThe(nga, viet);
+        if (vidu) theMoi.vidu = vidu;
+        var loaiThuc = loaiChon === "auto" ? doanTuLoai(nga) : loaiChon;
+        if (loaiThuc) {
+          theMoi.loai = loaiThuc;
+          if (loaiChon === "auto") theMoi.loaiDoan = true;
+        }
+        if (loaiThuc === "dgt" && cachThemChon.size > 0) {
+          theMoi.cach = chuanCach(Array.from(cachThemChon));
+        }
+        danhSach.push(theMoi);
         document.getElementById("oNga").value = "";
         document.getElementById("oViet").value = "";
+        document.getElementById("oViDu").value = "";
+        document.getElementById("oLoai").value = "auto";
+        cachThemChon.clear();
+        document.querySelectorAll("#oCachList .nutCach").forEach(function (b) { b.classList.remove("chon"); });
+        if (window._capNhatHienCachThem) window._capNhatHienCachThem();
         document.getElementById("oTrung").textContent = "";
         viTri = danhSach.length - 1;
         dangLat = false;
@@ -2722,7 +2933,7 @@
         var a = document.createElement("span"); a.textContent = hienNga(x.t); a.lang = "ru";
         var b = document.createElement("span"); b.textContent = x.t.viet;
         var c = document.createElement("small");
-        c.textContent = [dem[x.k] > 1 ? "×" + dem[x.k] : "", nhanLoai(x.t), (x.t.thuoc ? "✓ " : "") + thuVien[x.hp].ten]
+        c.textContent = [dem[x.k] > 1 ? "×" + dem[x.k] : "", nhanLoai(x.t), laDongTuCoCach(x.t) ? moTaCach(x.t.cach) : "", x.t.vidu ? "«" + x.t.vidu + "»" : "", (x.t.thuoc ? "✓ " : "") + thuVien[x.hp].ten]
           .filter(function (p) { return p; }).join(" · ");
         r.appendChild(a); r.appendChild(b); r.appendChild(c);
         r.onclick = function () { moHocPhan(x.hp); viTri = x.j; hienThi(); };
@@ -2978,7 +3189,7 @@
     };
 
     // ===== TRẮC NGHIỆM =====
-    var diem = 0, tongCau = 0, cauHienTai = null, huongCau = "nv", daTraLoi = false;
+    var diem = 0, tongCau = 0, cauHienTai = null, huongCau = "nv", daTraLoi = false, quizCachChon = new Set();
 
     function capNhatDiem() {
       document.getElementById("diemQuiz").textContent = "Điểm: " + diem + " / " + tongCau;
@@ -3039,23 +3250,70 @@
         document.getElementById("nutKiemTra").disabled = false;
         oGo.focus();
       }
+      quizCachChon.clear();
+      var qCachWrap = document.getElementById("quizCachWrap");
+      if (laDongTuCoCach(dung)) {
+        qCachWrap.hidden = false;
+        qCachWrap.innerHTML = "";
+        var tdQ = document.createElement("div");
+        tdQ.className = "tieuDeCach";
+        tdQ.textContent = "Động từ này đi với cách mấy? (chọn trước khi chốt đáp án)";
+        qCachWrap.appendChild(tdQ);
+        var dsQ = document.createElement("div");
+        dsQ.className = "dsCach";
+        CACH_NGA.forEach(function (c) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "nutCach";
+          b.dataset.cach = String(c.id);
+          b.textContent = c.ten + " (" + c.ky + ")";
+          b.title = c.hoi;
+          b.onclick = function () {
+            if (daTraLoi) return;
+            if (quizCachChon.has(c.id)) quizCachChon.delete(c.id);
+            else quizCachChon.add(c.id);
+            b.classList.toggle("chon", quizCachChon.has(c.id));
+          };
+          dsQ.appendChild(b);
+        });
+        qCachWrap.appendChild(dsQ);
+      } else {
+        qCachWrap.hidden = true;
+        qCachWrap.innerHTML = "";
+      }
       document.getElementById("ketQua").textContent = "";
       document.getElementById("cauTiep").style.display = "none";
       capNhatDiem();
     }
 
-    function ghiKetQua(dung) {
+    function ghiKetQua(dungNghia) {
+      var canCach = laDongTuCoCach(cauHienTai);
+      var dungCach = !canCach || khopCach(quizCachChon, cauHienTai.cach);
+      if (canCach) {
+        var chuan = chuanCach(cauHienTai.cach);
+        document.querySelectorAll("#quizCachWrap .nutCach").forEach(function (b) {
+          b.disabled = true;
+          var id = parseInt(b.dataset.cach, 10);
+          if (chuan.indexOf(id) !== -1) b.classList.add("dung");
+          else if (quizCachChon.has(id)) b.classList.add("sai");
+        });
+      }
+      var dung = dungNghia && dungCach;
       daTraLoi = true;
       tongCau++;
       var ketQua = document.getElementById("ketQua");
+      var vdTxt = cauHienTai.vidu ? (" · Ví dụ: " + cauHienTai.vidu) : "";
       if (dung) {
         diem++;
-        ketQua.textContent = "✓ Chính xác! / Верно!";
+        ketQua.textContent = "✓ Chính xác! / Верно!" + (canCach ? " (" + moTaCach(cauHienTai.cach) + ")" : "") + vdTxt;
         capNhatSRS(cauHienTai, true);
         ghiThongKe(true, 1);
         luu();
       } else {
-        ketQua.textContent = "✗ Chưa đúng / Неверно — đáp án: " + (truongDapAn() === "nga" ? hienNga(cauHienTai) : cauHienTai[truongDapAn()]);
+        var lyDo = !dungNghia
+          ? ("đáp án: " + (truongDapAn() === "nga" ? hienNga(cauHienTai) : cauHienTai[truongDapAn()]) + (canCach ? " · " + moTaCach(cauHienTai.cach) : ""))
+          : ("đúng nghĩa nhưng sai cách — động từ này đi với: " + moTaCach(cauHienTai.cach));
+        ketQua.textContent = "✗ Chưa đúng / Неверно — " + lyDo + vdTxt;
         cauHienTai.thuoc = false; // trả lời sai thì từ này quay về "đang học"
         capNhatSRS(cauHienTai, false);
         ghiThongKe(false, 1);
@@ -3067,6 +3325,10 @@
     }
 
     function chonDapAn(nut, t) {
+      if (laDongTuCoCach(cauHienTai) && quizCachChon.size === 0) {
+        thongBao("⚠️ Hãy chọn cách của động từ ở phía trên trước khi chọn đáp án!");
+        return;
+      }
       document.querySelectorAll("#dapAn button").forEach(function (n) {
         n.disabled = true;
         if (n._the === cauHienTai) n.classList.add("dung");
@@ -3080,6 +3342,10 @@
       if (daTraLoi) return;
       var oGo = document.getElementById("oGo");
       if (oGo.value.trim() === "") return;
+      if (laDongTuCoCach(cauHienTai) && quizCachChon.size === 0) {
+        thongBao("⚠️ Hãy chọn cách của động từ ở phía trên trước khi kiểm tra!");
+        return;
+      }
       var dapAn = cauHienTai[truongDapAn()];
       var chapNhan = [chuanHoa(dapAn)];
       dapAn.split(/[;\/,]/).forEach(function (ph) {
@@ -3485,18 +3751,57 @@
       var vung = document.getElementById("thoaiTruong");
       vung.innerHTML = "";
       thoaiTruong = [];
+      var _selLoai = null, _cachWrap = null;
       (o.truong || []).forEach(function (f) {
         var khung = document.createElement("div");
         if (f.nhan) { var lb = document.createElement("div"); lb.className = "muted"; lb.textContent = f.nhan; khung.appendChild(lb); }
-        var inp = document.createElement("input");
-        inp.type = "text"; inp.value = f.giaTri || ""; inp.autocomplete = "off"; inp.spellcheck = false;
-        inp.setAttribute("aria-label", f.nhan || o.tieuDe || "Nhập");
-        if (f.lang) inp.lang = f.lang;
-        inp.style.cssText = "width:100%;margin:4px 0 10px";
-        inp.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); okThoai(); } };
-        khung.appendChild(inp);
-        vung.appendChild(khung);
-        thoaiTruong.push(inp);
+        if (f.loai === "select") {
+          var sel = document.createElement("select");
+          sel.style.cssText = "width:100%;margin:4px 0 10px";
+          (f.tuyChon || []).forEach(function (opt) {
+            var op = document.createElement("option");
+            op.value = opt[0]; op.textContent = opt[1];
+            sel.appendChild(op);
+          });
+          sel.value = f.giaTri || "";
+          _selLoai = sel;
+          sel.onchange = function () { if (_cachWrap) _cachWrap.style.display = sel.value === "dgt" ? "" : "none"; };
+          khung.appendChild(sel);
+          vung.appendChild(khung);
+          thoaiTruong.push(sel);
+        } else if (f.loai === "cach") {
+          var chon = new Set(chuanCach(f.giaTri));
+          var ds = document.createElement("div");
+          ds.className = "dsCach";
+          ds.style.cssText = "justify-content:flex-start;margin:4px 0 10px";
+          CACH_NGA.forEach(function (c) {
+            var b = document.createElement("button");
+            b.type = "button";
+            b.className = "nutCach" + (chon.has(c.id) ? " chon" : "");
+            b.textContent = c.ten + " (" + c.ky + ")";
+            b.title = c.hoi;
+            b.onclick = function () {
+              if (chon.has(c.id)) chon.delete(c.id); else chon.add(c.id);
+              b.classList.toggle("chon", chon.has(c.id));
+            };
+            ds.appendChild(b);
+          });
+          khung.appendChild(ds);
+          _cachWrap = khung;
+          if (_selLoai && _selLoai.value !== "dgt") khung.style.display = "none";
+          vung.appendChild(khung);
+          thoaiTruong.push({ _get: function () { return chuanCach(Array.from(chon)); } });
+        } else {
+          var inp = document.createElement("input");
+          inp.type = "text"; inp.value = f.giaTri || ""; inp.autocomplete = "off"; inp.spellcheck = false;
+          inp.setAttribute("aria-label", f.nhan || o.tieuDe || "Nhập");
+          if (f.lang) inp.lang = f.lang;
+          inp.style.cssText = "width:100%;margin:4px 0 10px";
+          inp.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); okThoai(); } };
+          khung.appendChild(inp);
+          vung.appendChild(khung);
+          thoaiTruong.push(inp);
+        }
       });
       var ok = document.getElementById("thoaiOK");
       ok.textContent = o.ok || "OK";
@@ -3507,7 +3812,7 @@
     }
     function dongThoai() { document.getElementById("hopThoai").style.display = "none"; thoaiCb = null; }
     function okThoai() {
-      var cb = thoaiCb, v = thoaiTruong.length ? thoaiTruong.map(function (i) { return i.value; }) : true;
+      var cb = thoaiCb, v = thoaiTruong.length ? thoaiTruong.map(function (i) { return i._get ? i._get() : i.value; }) : true;
       dongThoai();
       if (cb) cb(v);
     }
@@ -3843,6 +4148,8 @@
           if (t.nhan && !a.nhan) a.nhan = t.nhan;
           if ((t.oc || 0) > (a.oc || 0)) { a.ob = t.ob; a.han = t.han; a.oc = t.oc; }   // lịch ôn của lần ôn mới hơn
           if (t.dau && (!a.dau || t.dau < a.dau)) a.dau = t.dau;
+          if (t.vidu && !a.vidu) a.vidu = t.vidu;
+          if (Array.isArray(t.cach) && t.cach.length && (!a.cach || !a.cach.length)) a.cach = chuanCach(t.cach);
           if (t.loai && (!a.loai || (a.loaiDoan && !t.loaiDoan))) {
             a.loai = t.loai;
             if (t.loaiDoan) a.loaiDoan = true; else delete a.loaiDoan;
