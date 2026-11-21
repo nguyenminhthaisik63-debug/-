@@ -439,6 +439,147 @@
     .themMoRong select { min-width: 150px; }
     .cachChonWrap { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; width: 100%; }
 
+  
+    /* ===== NÂNG CẤP GIAO DIỆN HIỆN ĐẠI (UI POLISH) ===== */
+    body {
+      background-image:
+        radial-gradient(900px 500px at 15% -10%, rgba(56, 189, 248, .12), transparent 60%),
+        radial-gradient(700px 420px at 90% 10%, rgba(16, 185, 129, .08), transparent 55%);
+      background-attachment: fixed;
+      -webkit-font-smoothing: antialiased;
+    }
+    :root[data-theme="light"] body {
+      background-image:
+        radial-gradient(900px 500px at 15% -10%, rgba(2, 132, 199, .10), transparent 60%),
+        radial-gradient(700px 420px at 90% 10%, rgba(16, 185, 129, .08), transparent 55%);
+    }
+    button, .nut, .vien, .muc, .hocPhan, .dapAn, .tron, .nutCach {
+      transition: transform .15s ease, background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+    button:active:not(:disabled), .nut:active:not(:disabled), .tron:active:not(:disabled), .nutCach:active:not(:disabled) {
+      transform: scale(.97);
+    }
+
+    /* Thanh trên & nút viên */
+    .vien {
+      border: 1px solid var(--vienHop);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+    }
+    .vien:hover { background: var(--hopHover); border-color: var(--timNhat); }
+
+    /* Thẻ Flashcard 3D */
+    #card {
+      transition: transform .5s cubic-bezier(.22, .61, .36, 1);
+      filter: drop-shadow(0 18px 34px rgba(2, 6, 23, .34));
+    }
+    :root[data-theme="light"] #card {
+      filter: drop-shadow(0 14px 28px rgba(15, 23, 42, .12));
+    }
+    .mat {
+      border: 1.5px solid var(--vienHop);
+      border-radius: 24px 24px 0 0;
+      background: linear-gradient(165deg, var(--the) 0%, var(--hop) 100%);
+    }
+    .mat.sau {
+      background: linear-gradient(165deg, var(--hop) 0%, var(--the) 100%);
+    }
+    #card.thuoc .mat {
+      border-color: rgba(16, 185, 129, .65);
+      box-shadow: inset 0 0 0 1px rgba(16, 185, 129, .2);
+    }
+    .chu {
+      font-weight: 700;
+      letter-spacing: -.01em;
+    }
+    .phimTat {
+      border-radius: 0 0 24px 24px;
+      background: linear-gradient(90deg, var(--tim) 0%, var(--timNhat) 100%);
+      font-weight: 600;
+      box-shadow: 0 10px 24px rgba(2, 132, 199, .22);
+    }
+
+    /* Nút Đang học / Đã biết */
+    .tron {
+      border: 1.5px solid var(--vienHop);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, .16);
+    }
+    .tron.do:hover { background: rgba(239, 68, 68, .16); border-color: var(--do); }
+    .tron.xanh:hover { background: rgba(16, 185, 129, .16); border-color: var(--luc); }
+    .tron.nho { box-shadow: 0 4px 12px rgba(0, 0, 0, .12); }
+
+    /* Khối nội dung, Thư viện & Thống kê */
+    .hop, .phimTatBang {
+      box-shadow: 0 6px 22px rgba(0, 0, 0, .14);
+    }
+    :root[data-theme="light"] .hop, :root[data-theme="light"] .phimTatBang {
+      box-shadow: 0 4px 18px rgba(15, 23, 42, .06);
+    }
+    .oSo {
+      transition: transform .15s ease, border-color .15s ease, background-color .15s ease;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, .1);
+    }
+    button.oSo:hover { transform: translateY(-2px); border-color: var(--timNhat); }
+    .hocPhan {
+      border: 1.5px solid var(--vienHop);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, .08);
+    }
+    .hocPhan:hover {
+      background: var(--hopHover);
+      border-color: var(--timNhat);
+      transform: translateY(-1px);
+    }
+    .dangMo {
+      border-color: var(--timNhat);
+      box-shadow: 0 0 0 1px var(--timNhat), 0 6px 18px rgba(56, 189, 248, .15);
+    }
+
+    /* Ô nhập liệu & Nút chọn cách */
+    input[type="text"], input[type="password"], input[type="number"], select, textarea {
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus, select:focus, textarea:focus {
+      border-color: var(--timNhat);
+    }
+    .hopCach {
+      box-shadow: 0 4px 14px rgba(0, 0, 0, .1);
+    }
+    .nutCach:hover:not(:disabled) {
+      border-color: var(--timNhat);
+      background: var(--hopHover);
+    }
+    .nutCach.chon {
+      box-shadow: 0 3px 10px rgba(2, 132, 199, .3);
+    }
+
+    /* Thanh tab dưới cùng hiệu ứng kính mờ */
+    #thanhTab {
+      background: rgba(17, 30, 56, .84);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    :root[data-theme="light"] #thanhTab {
+      background: rgba(255, 255, 255, .86);
+    }
+    #thanhTab button[aria-current="page"] {
+      box-shadow: 0 4px 12px rgba(2, 132, 199, .35);
+    }
+
+    /* Hộp thoại & Modal */
+    .phuNhan, #hopThoai {
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .hopNhanTrong, #hopThoai > div {
+      border-radius: 22px !important;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+    }
+
+    /* Thanh cuộn gọn đẹp */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--vien); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--phu); }
+
   </style>
 </head>
 <body>
