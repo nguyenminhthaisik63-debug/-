@@ -470,15 +470,16 @@
     /* Thẻ Flashcard 3D */
     #card {
       transition: transform .5s cubic-bezier(.22, .61, .36, 1);
-      filter: drop-shadow(0 18px 34px rgba(2, 6, 23, .34));
-    }
-    :root[data-theme="light"] #card {
-      filter: drop-shadow(0 14px 28px rgba(15, 23, 42, .12));
+      transform-style: preserve-3d;
     }
     .mat {
       border: 1.5px solid var(--vienHop);
       border-radius: 24px 24px 0 0;
       background: linear-gradient(165deg, var(--the) 0%, var(--hop) 100%);
+      box-shadow: 0 18px 34px rgba(2, 6, 23, .34);
+    }
+    :root[data-theme="light"] .mat {
+      box-shadow: 0 14px 28px rgba(15, 23, 42, .12);
     }
     .mat.sau {
       background: linear-gradient(165deg, var(--hop) 0%, var(--the) 100%);
