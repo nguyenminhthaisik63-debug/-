@@ -614,6 +614,15 @@
     /* Sửa màu chữ trong phím <kbd> thanh xanh để không bị trắng trên nền trắng */
     .phimTat kbd { color: #0f172a; border-color: rgba(15, 23, 42, .25); }
 
+  
+    /* ----- Đường dẫn thư mục (Breadcrumb) ----- */
+    .duongDan { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0 8px;
+                padding: 8px 12px; border-radius: 12px; background: var(--nen); border: 1px solid var(--vienHop); font-size: 14px; }
+    .duongDan button { background: none; border: 0; color: var(--timNhat); font-weight: 600; padding: 2px 6px; border-radius: 6px; }
+    .duongDan button:hover { background: var(--hover); }
+    .duongDan .hienTaiMuc { color: var(--chu); font-weight: 700; padding: 2px 6px; }
+    .duongDan .dauCach { color: var(--phu); user-select: none; }
+
   </style>
 </head>
 <body>
@@ -645,10 +654,12 @@
 
     <section class="hop">
       <h2>📚 Thư viện của bạn / Ваша библиотека</h2>
+      <div id="duongDanMuc" class="duongDan" style="display:none" aria-label="Đường dẫn thư mục"></div>
       <div id="dsMuc" class="hang"></div>
       <div class="hang">
         <button id="taoMuc" class="nut">📁＋ Thư mục</button>
         <button id="doiMuc" class="nut">✏ Đổi tên thư mục</button>
+        <button id="chuyenMuc" class="nut" style="display:none">📂 Di chuyển thư mục</button>
         <button id="xoaMuc" class="nut nguy">🗑 Xóa thư mục</button>
       </div>
       <!-- Thẻ phân loại bên trong thư mục đang chọn (giống các tab của Quizlet) -->
@@ -1224,11 +1235,25 @@
 
     // Chuẩn hóa id thư mục / thẻ phân loại thành CHUỖI ở mọi nơi, để so sánh không bị lệch kiểu số/chuỗi
     function chuanHoaDuLieu() {
+    var idMucHopLe = Object.create(null);
     thuMuc.forEach(function (m) {
       m.id = String(m.id);
+      idMucHopLe[m.id] = true;
+      m.chaId = (m.chaId === undefined || m.chaId === null || m.chaId === "") ? null : String(m.chaId);
       m.tabs = (Array.isArray(m.tabs) ? m.tabs : [])
         .filter(function (t) { return t && t.ten !== undefined && t.ten !== null; })
         .map(function (t) { return { id: String(t.id), ten: String(t.ten) }; });
+    });
+    thuMuc.forEach(function (m) {
+      if (!m.chaId || !idMucHopLe[m.chaId] || m.chaId === m.id) { m.chaId = null; return; }
+      var seen = Object.create(null); seen[m.id] = true;
+      var curId = m.chaId;
+      while (curId) {
+        if (seen[curId]) { m.chaId = null; break; }
+        seen[curId] = true;
+        var p = thuMuc.filter(function (x) { return x.id === curId; })[0];
+        curId = p ? p.chaId : null;
+      }
     });
     thuVien.forEach(function (hp) {
       if (!Array.isArray(hp.tu)) hp.tu = [];
@@ -2445,6 +2470,100 @@
     // ===== THƯ VIỆN: học phần + thư mục + thẻ phân loại =====
     function dangXemThuMuc() { return locMuc !== "tatca" && locMuc !== "khong"; }
 
+    function timMuc(id) {
+      if (!id) return null;
+      return thuMuc.filter(function (m) { return m.id === id; })[0] || null;
+    }
+
+    function duongDanMuc(id) {
+      var ds = [], seen = Object.create(null), cur = timMuc(id);
+      while (cur && !seen[cur.id]) {
+        seen[cur.id] = true;
+        ds.unshift(cur);
+        cur = timMuc(cur.chaId);
+      }
+      return ds;
+    }
+
+    function tenDuongDanMuc(id) {
+      return duongDanMuc(id).map(function (m) { return m.ten; }).join(" / ");
+    }
+
+    function tatCaConMuc(id) {
+      var set = new Set();
+      if (!id) return set;
+      set.add(id);
+      var doi = true;
+      while (doi) {
+        doi = false;
+        thuMuc.forEach(function (m) {
+          if (m.chaId && set.has(m.chaId) && !set.has(m.id)) {
+            set.add(m.id);
+            doi = true;
+          }
+        });
+      }
+      return set;
+    }
+
+    function demHPTrongCay(mucId) {
+      var tap = tatCaConMuc(mucId);
+      return thuVien.filter(function (hp) { return hp.mucId && tap.has(hp.mucId); }).length;
+    }
+
+    function dsMucTheoCay() {
+      var kq = [], daThem = Object.create(null);
+      function duyet(chaId, cap) {
+        thuMuc.forEach(function (m) {
+          if ((m.chaId || null) === chaId && !daThem[m.id]) {
+            daThem[m.id] = true;
+            kq.push({ m: m, cap: cap });
+            duyet(m.id, cap + 1);
+          }
+        });
+      }
+      duyet(null, 0);
+      thuMuc.forEach(function (m) { if (!daThem[m.id]) kq.push({ m: m, cap: 0 }); });
+      return kq;
+    }
+
+    // Tự động đặt tên học phần: chữ cái đầu của thư mục + ngày DD/MM/YY (tự nhảy +1 ngày nếu trùng)
+    function vietTatThuMuc(ten) {
+      var tu = String(ten || "").trim().split(/[\s\-_/.,;:()«»"']+/).filter(Boolean);
+      var kq = "";
+      tu.forEach(function (w) {
+        var m = w.match(/[\p{L}\p{N}]/u);
+        if (m) kq += m[0].toLocaleUpperCase("ru");
+      });
+      return kq;
+    }
+
+    function dinhDangNgayNgan(d) {
+      var dd = String(d.getDate()).padStart(2, "0");
+      var mm = String(d.getMonth() + 1).padStart(2, "0");
+      var yy = String(d.getFullYear()).slice(-2);
+      return dd + "/" + mm + "/" + yy;
+    }
+
+    function goiYTenHocPhan(mucId) {
+      var m = timMuc(mucId);
+      if (!m) return "";
+      var vt = vietTatThuMuc(m.ten);
+      if (!vt) return "";
+      var daCo = Object.create(null);
+      thuVien.forEach(function (hp) {
+        if (hp.mucId === mucId && hp.ten) daCo[hp.ten.trim().toLowerCase()] = true;
+      });
+      var d = new Date();
+      d.setHours(12, 0, 0, 0);
+      for (var i = 0; i < 3650; i++) {
+        var ten = vt + " " + dinhDangNgayNgan(d);
+        if (!daCo[ten.toLowerCase()]) return ten;
+        d.setDate(d.getDate() + 1);
+      }
+      return vt + " " + dinhDangNgayNgan(new Date());
+    }
+
     // Thẻ phân loại cụ thể đang chọn (để gán cho học phần mới tạo); không có thì null
     function tabHienTai() {
       return (dangXemThuMuc() && locTab !== "tat" && locTab !== "khong") ? locTab : null;
@@ -2531,7 +2650,7 @@
     function viTriNhan(hp) {
       var mu = hp.mucId ? thuMuc.filter(function (m) { return m.id === hp.mucId; })[0] : null;
       var tb = (mu && hp.tabId) ? mu.tabs.filter(function (t) { return t.id === hp.tabId; })[0] : null;
-      if (locMuc === "tatca" && mu) return " · 📁 " + mu.ten + (tb ? " › " + tb.ten : "");
+      if (locMuc === "tatca" && mu) return " · 📁 " + tenDuongDanMuc(mu.id) + (tb ? " › " + tb.ten : "");
       if (dangXemThuMuc() && locTab === "tat" && tb) return " · " + tb.ten;
       return "";
     }
@@ -2544,9 +2663,10 @@
       function opt(v, t) { var o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); }
       opt("__", "Chuyển đến…");
       opt("", "(Chưa phân loại)");
-      thuMuc.forEach(function (m) {
-        opt(m.id + "|", "📁 " + m.ten);
-        m.tabs.forEach(function (t) { opt(m.id + "|" + t.id, "📁 " + m.ten + " › " + t.ten); });
+      dsMucTheoCay().forEach(function (item) {
+        var m = item.m, duong = tenDuongDanMuc(m.id);
+        opt(m.id + "|", "📁 " + duong);
+        m.tabs.forEach(function (t) { opt(m.id + "|" + t.id, "📁 " + duong + " › " + t.ten); });
       });
       sel.value = cu;
       if (sel.value !== cu) sel.value = "__";
@@ -2565,7 +2685,47 @@
       veSRS();
       veRac();
       veThongKe();
-      // --- Thanh thư mục ---
+      // --- Đường dẫn thư mục (Breadcrumb) & Thanh thư mục kiểu cây ---
+      var dd = document.getElementById("duongDanMuc");
+      var mucHien = mucDangChon();
+      if (dangXemThuMuc() && !mucHien) { locMuc = "tatca"; locTab = "tat"; }
+      var nutTaoMuc = document.getElementById("taoMuc");
+      var nutChuyenMuc = document.getElementById("chuyenMuc");
+      if (nutTaoMuc) nutTaoMuc.textContent = mucHien ? "📁＋ Thư mục con" : "📁＋ Thư mục";
+      if (nutChuyenMuc) nutChuyenMuc.style.display = mucHien ? "" : "none";
+
+      if (mucHien) {
+        dd.style.display = "flex";
+        dd.innerHTML = "";
+        var nutGoc = document.createElement("button");
+        nutGoc.type = "button";
+        nutGoc.textContent = "📚 Thư viện gốc";
+        nutGoc.onclick = function () { locMuc = "tatca"; locTab = "tat"; veThuVien(); };
+        dd.appendChild(nutGoc);
+        var path = duongDanMuc(mucHien.id);
+        path.forEach(function (pm, idx) {
+          var sep = document.createElement("span");
+          sep.className = "dauCach";
+          sep.textContent = "›";
+          dd.appendChild(sep);
+          if (idx === path.length - 1) {
+            var curSp = document.createElement("span");
+            curSp.className = "hienTaiMuc";
+            curSp.textContent = "📁 " + pm.ten;
+            dd.appendChild(curSp);
+          } else {
+            var btnP = document.createElement("button");
+            btnP.type = "button";
+            btnP.textContent = "📁 " + pm.ten;
+            btnP.onclick = function () { locMuc = pm.id; locTab = "tat"; veThuVien(); };
+            dd.appendChild(btnP);
+          }
+        });
+      } else {
+        dd.style.display = "none";
+        dd.innerHTML = "";
+      }
+
       var thanh = document.getElementById("dsMuc");
       thanh.innerHTML = "";
       function themChip(nhan, giaTri) {
@@ -2575,13 +2735,28 @@
         nut.onclick = function () { locMuc = giaTri; locTab = "tat"; veThuVien(); };
         thanh.appendChild(nut);
       }
-      themChip("Tất cả (" + thuVien.length + ")", "tatca");
-      var khong = thuVien.filter(function (hp) { return !hp.mucId; }).length;
-      themChip("Chưa phân loại (" + khong + ")", "khong");
-      thuMuc.forEach(function (m) {
-        var so = thuVien.filter(function (hp) { return hp.mucId === m.id; }).length;
-        themChip("📁 " + m.ten + " · " + so + " mục", m.id);
-      });
+      if (!mucHien) {
+        themChip("Tất cả (" + thuVien.length + ")", "tatca");
+        var khong = thuVien.filter(function (hp) { return !hp.mucId; }).length;
+        themChip("Chưa phân loại (" + khong + ")", "khong");
+        thuMuc.filter(function (m) { return !m.chaId; }).forEach(function (m) {
+          var soCon = thuMuc.filter(function (c) { return c.chaId === m.id; }).length;
+          var soHP = demHPTrongCay(m.id);
+          themChip("📁 " + m.ten + " · " + soHP + " mục" + (soCon ? " (" + soCon + " thư mục)" : ""), m.id);
+        });
+      } else {
+        var nutLen = document.createElement("button");
+        nutLen.className = "muc";
+        nutLen.textContent = mucHien.chaId ? "↖ Lên: " + (timMuc(mucHien.chaId) ? timMuc(mucHien.chaId).ten : "Gốc") : "↖ Về gốc";
+        nutLen.onclick = function () { locMuc = mucHien.chaId || "tatca"; locTab = "tat"; veThuVien(); };
+        thanh.appendChild(nutLen);
+        var dsCon = thuMuc.filter(function (m) { return m.chaId === mucHien.id; });
+        dsCon.forEach(function (m) {
+          var soCon = thuMuc.filter(function (c) { return c.chaId === m.id; }).length;
+          var soHP = demHPTrongCay(m.id);
+          themChip("📁 " + m.ten + " · " + soHP + " mục" + (soCon ? " (" + soCon + " thư mục)" : ""), m.id);
+        });
+      }
 
       // --- Hàng thẻ phân loại của thư mục đang chọn ---
       veHangTab();
@@ -2646,10 +2821,10 @@
       op0.value = "";
       op0.textContent = "(Chưa phân loại)";
       chon.appendChild(op0);
-      thuMuc.forEach(function (m) {
+      dsMucTheoCay().forEach(function (item) {
         var op = document.createElement("option");
-        op.value = m.id;
-        op.textContent = m.ten;
+        op.value = item.m.id;
+        op.textContent = tenDuongDanMuc(item.m.id);
         chon.appendChild(op);
       });
       chon.value = thuVien[hienTai].mucId || "";
@@ -2695,8 +2870,10 @@
     }
 
     document.getElementById("taoHP").onclick = function () {
-      nhapTen("Tạo học phần mới", "", function (ten) {
-        thuVien.push({ id: taoId(), ten: ten, tu: [], mucId: dangXemThuMuc() ? locMuc : null, tabId: tabHienTai() });
+      var mucDich = dangXemThuMuc() ? locMuc : null;
+      var goiY = goiYTenHocPhan(mucDich);
+      nhapTen("Tạo học phần mới", goiY, function (ten) {
+        thuVien.push({ id: taoId(), ten: ten, tu: [], mucId: mucDich, tabId: tabHienTai() });
         moHocPhan(thuVien.length - 1);
       });
     };
@@ -2733,8 +2910,10 @@
     }
 
     document.getElementById("taoMuc").onclick = function () {
-      nhapTen("Tạo thư mục mới", "", function (ten) {
-        var moi = { id: taoId(), ten: ten, tabs: [] };
+      var cha = mucDangChon();
+      var td = cha ? ("Tạo thư mục con trong «" + cha.ten + "»") : "Tạo thư mục mới";
+      nhapTen(td, "", function (ten) {
+        var moi = { id: taoId(), ten: ten, chaId: cha ? cha.id : null, tabs: [] };
         thuMuc.push(moi);
         locMuc = moi.id; // chuyển sang xem thư mục vừa tạo
         locTab = "tat";
@@ -2748,13 +2927,36 @@
       nhapTen("Đổi tên thư mục", m.ten, function (ten) { m.ten = ten; luu(); });
     };
 
+    document.getElementById("chuyenMuc").onclick = function () {
+      var m = mucDangChon();
+      if (!m) return;
+      var khongChon = tatCaConMuc(m.id);
+      var tuyChon = [["", "📚 Thư viện gốc (ngoài cùng)"]];
+      dsMucTheoCay().forEach(function (item) {
+        if (!khongChon.has(item.m.id)) {
+          tuyChon.push([item.m.id, "📁 " + tenDuongDanMuc(item.m.id)]);
+        }
+      });
+      thoai({
+        tieuDe: "📂 Di chuyển thư mục «" + m.ten + "»",
+        ok: "Di chuyển",
+        truong: [{ nhan: "Đặt bên trong thư mục:", loai: "select", giaTri: m.chaId || "", tuyChon: tuyChon }]
+      }, function (v) {
+        m.chaId = v[0] ? String(v[0]) : null;
+        luu();
+        thongBao("Đã chuyển «" + m.ten + "» đến " + (m.chaId ? "📁 " + tenDuongDanMuc(m.chaId) : "Thư viện gốc"));
+      });
+    };
+
     document.getElementById("xoaMuc").onclick = function () {
       var m = mucDangChon();
       if (!m) { baoTin("Hãy bấm chọn một thư mục (nút 📁) trước!"); return; }
-      xacNhan("Xóa thư mục «" + m.ten + "»? Các học phần bên trong vẫn được giữ lại.", function () {
-        thuVien.forEach(function (hp) { if (hp.mucId === m.id) { hp.mucId = null; hp.tabId = null; } });
+      xacNhan("Xóa thư mục «" + m.ten + "»? Các thư mục con và học phần bên trong vẫn được giữ lại (đưa lên thư mục cha).", function () {
+        var chaMoi = m.chaId || null;
+        thuMuc.forEach(function (c) { if (c.chaId === m.id) c.chaId = chaMoi; });
+        thuVien.forEach(function (hp) { if (hp.mucId === m.id) { hp.mucId = chaMoi; hp.tabId = null; } });
         thuMuc = thuMuc.filter(function (x) { return x.id !== m.id; });
-        locMuc = "tatca";
+        locMuc = chaMoi || "tatca";
         locTab = "tat";
         luu();
       }, { nguy: true, ok: "Xóa" });
@@ -3604,11 +3806,12 @@
     function nhapToanBo(goi) {
       var anhXa = {};     // id thư mục cũ → id thư mục trong thư viện này
       var anhXaTab = {};  // "idThuMucCu|idTheCu" → id thẻ phân loại trong thư viện này
-      (Array.isArray(goi.thuMuc) ? goi.thuMuc : []).forEach(function (m) {
+      var dsMucNhap = Array.isArray(goi.thuMuc) ? goi.thuMuc : [];
+      dsMucNhap.forEach(function (m) {
         if (!m || m.ten === undefined || m.ten === null) return;
         var ten = String(m.ten);
         var co = thuMuc.filter(function (x) { return x.ten === ten; })[0];
-        if (!co) { co = { id: taoId(), ten: ten, tabs: [] }; thuMuc.push(co); }
+        if (!co) { co = { id: taoId(), ten: ten, chaId: null, tabs: [] }; thuMuc.push(co); }
         if (!Array.isArray(co.tabs)) co.tabs = [];
         anhXa[String(m.id)] = co.id;
         (Array.isArray(m.tabs) ? m.tabs : []).forEach(function (t) {
@@ -3618,6 +3821,12 @@
           if (!ct) { ct = { id: taoId(), ten: tn }; co.tabs.push(ct); }
           anhXaTab[String(m.id) + "|" + String(t.id)] = ct.id;
         });
+      });
+      dsMucNhap.forEach(function (m) {
+        if (!m || !m.chaId) return;
+        var conId = anhXa[String(m.id)], chaId = anhXa[String(m.chaId)];
+        var con = timMuc(conId);
+        if (con && chaId && chaId !== conId && !con.chaId) con.chaId = chaId;
       });
       var soHP = 0, soTu = 0;
       goi.thuVien.forEach(function (hp) {
@@ -3986,7 +4195,7 @@
       ok.className = "nut " + (o.nguy ? "nguyNen" : "tim");
       document.getElementById("thoaiHuy").style.display = o.huy === false ? "none" : "";
       document.getElementById("hopThoai").style.display = "flex";
-      setTimeout(function () { var dau = thoaiTruong[0]; if (dau) { dau.focus(); dau.select(); } else ok.focus(); }, 30);
+      setTimeout(function () { var dau = thoaiTruong[0]; if (dau) { if (dau.focus) dau.focus(); if (dau.select) dau.select(); } else ok.focus(); }, 30);
     }
     function dongThoai() { document.getElementById("hopThoai").style.display = "none"; thoaiCb = null; }
     function okThoai() {
@@ -4294,11 +4503,12 @@
         xa.thungRac.forEach(function (e) { if (e && e.id && !thungRac.some(function (x) { return x.id === e.id; })) thungRac.push(e); });
         donRacCu();
       }
-      (Array.isArray(xa.thuMuc) ? xa.thuMuc : []).forEach(function (m) {
+      var dsMucXa = Array.isArray(xa.thuMuc) ? xa.thuMuc : [];
+      dsMucXa.forEach(function (m) {
         if (!m || m.ten === undefined || m.ten === null) return;
         var ten = String(m.ten);
         var co = thuMuc.filter(function (x) { return x.ten === ten; })[0];
-        if (!co) { co = { id: taoId(), ten: ten, tabs: [] }; thuMuc.push(co); }
+        if (!co) { co = { id: taoId(), ten: ten, chaId: null, tabs: [] }; thuMuc.push(co); }
         anhXa[String(m.id)] = co.id;
         (Array.isArray(m.tabs) ? m.tabs : []).forEach(function (t) {
           if (!t || t.ten === undefined || t.ten === null) return;
@@ -4307,6 +4517,12 @@
           if (!ct) { ct = { id: taoId(), ten: tn }; co.tabs.push(ct); }
           anhXaTab[String(m.id) + "|" + String(t.id)] = ct.id;
         });
+      });
+      dsMucXa.forEach(function (m) {
+        if (!m || !m.chaId) return;
+        var conId = anhXa[String(m.id)], chaId = anhXa[String(m.chaId)];
+        var con = timMuc(conId);
+        if (con && chaId && chaId !== conId && !con.chaId) con.chaId = chaId;
       });
       xa.thuVien.forEach(function (hp) {
         if (!hp || !Array.isArray(hp.tu)) return;
