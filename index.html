@@ -685,6 +685,7 @@
       <div class="hang" style="margin-top:14px">
         <button id="sao" class="nut">💾 Sao lưu toàn bộ thư viện</button>
         <button id="nhapTV" class="nut">⬆ Nhập bản sao lưu</button>
+        <button id="xuatTuNga" class="nut" title="Xuất file .txt chỉ gồm các từ tiếng Nga (đã lọc trùng) để gửi AI tiết kiệm token">📄 Xuất DS từ Nga (.txt)</button>
       </div>
            <p class="muted saoNhac" id="saoNhac" aria-live="polite"></p>
     </section>
@@ -3802,8 +3803,8 @@
     });
 
     // ===== TỆP: xuất / sao lưu / nhập =====
-    function taiXuong(noiDung, tenTep) {
-      var blob = new Blob([noiDung], { type: "application/json" });
+    function taiXuong(noiDung, tenTep, kieu) {
+      var blob = new Blob([noiDung], { type: kieu || "application/json" });
       var link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = tenTep;
@@ -3821,6 +3822,31 @@
       var goi = { phienBan: 2, thuVien: thuVien, thuMuc: thuMuc, thongKe: thongKe };
       var ngay = new Date().toISOString().slice(0, 10);
       taiXuong(JSON.stringify(goi, null, 2), "thu-vien-tu-vung-nga-" + ngay + ".json");
+    };
+
+    // Xuất danh sách chỉ gồm từ tiếng Nga (đã lọc trùng, mỗi từ 1 dòng .txt — nhẹ, tiết kiệm token cho AI)
+    function layDanhSachTuNga() {
+      var thay = Object.create(null), ds = [];
+      thuVien.forEach(function (hp) {
+        (hp.tu || []).forEach(function (t) {
+          if (!t || !t.nga) return;
+          var w = String(t.nga).trim();
+          var k = chuanHoa(w);
+          if (!k || thay[k]) return;
+          thay[k] = true;
+          ds.push(w);
+        });
+      });
+      ds.sort(function (a, b) { return a.localeCompare(b, "ru", { sensitivity: "base" }); });
+      return ds;
+    }
+
+    document.getElementById("xuatTuNga").onclick = function () {
+      var ds = layDanhSachTuNga();
+      if (ds.length === 0) { baoTin("Thư viện chưa có từ tiếng Nga nào!"); return; }
+      var ngay = new Date().toISOString().slice(0, 10);
+      taiXuong(ds.join("\n") + "\n", "tu-tieng-nga-" + ngay + ".txt", "text/plain;charset=utf-8");
+      thongBao("Đã xuất " + ds.length + " từ tiếng Nga (.txt, đã lọc trùng)");
     };
 
     // Nhập bản sao lưu toàn bộ: thêm vào thư viện hiện có, thư mục / thẻ trùng tên thì gộp chung
