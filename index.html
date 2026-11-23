@@ -225,6 +225,12 @@
     .xemTruoc { max-height: 320px; overflow: auto; border: 1px solid var(--vienHop); border-radius: 12px; }
     .dongXem { display: grid; grid-template-columns: 36px 1fr 1fr; gap: 12px; padding: 8px 12px;
                border-bottom: 1px solid var(--vienHop); overflow-wrap: anywhere; }
+    .dongXem.coViDu { grid-template-columns: 36px minmax(0,1fr) minmax(0,1fr) minmax(0,1.2fr); }
+    .dongXem .xemViDu { color: var(--phu); font-style: italic; font-size: 14px; }
+    @media (max-width: 640px) {
+      .dongXem.coViDu { grid-template-columns: 28px 1fr 1fr; }
+      .dongXem.coViDu .xemViDu { grid-column: 2 / -1; margin-top: -4px; }
+    }
     .dongXem:last-child { border-bottom: 0; }
     .dongXem span:first-child { color: var(--phu); }
     .xemRong { padding: 14px; color: var(--phu); }
@@ -949,12 +955,12 @@
     <details class="hop" id="khuNhap" data-tab="them">
       <summary><h2>📥 Nhập dữ liệu / Импорт</h2></summary>
       <p class="muted" style="margin-top:-4px">
-        Chép và dán dữ liệu ở đây (từ Word, Excel, Google Docs, Quizlet…). Nếu một dòng không có dấu tách đã chọn,
-        app sẽ thử tách theo dạng <b>привет - xin chào</b>.
+        Chép và dán dữ liệu ở đây (từ Word, Excel, Google Docs, Quizlet…). Hỗ trợ 2 cột (<b>Tiếng Nga · Tiếng Việt</b>) hoặc 3 cột (<b>Tiếng Nga · Tiếng Việt · Ví dụ</b>).
+        Nếu một dòng không có dấu tách đã chọn, app sẽ tự tách theo dạng <b>привет - xin chào - Привет, друг!</b>.
       </p>
       <label for="vanBan" class="muted" style="display:block;margin-bottom:6px">Dữ liệu cần nhập</label>
       <textarea id="vanBan" lang="ru" spellcheck="false"
-        placeholder="привет    xin chào&#10;спасибо    cảm ơn&#10;вода    nước"></textarea>
+        placeholder="привет&#9;xin chào&#9;Привет, друг!&#10;читать&#9;đọc&#9;Я читаю книгу.&#10;вода&#9;nước"></textarea>
 
       <div class="tuyChon">
         <fieldset>
@@ -3055,7 +3061,27 @@
       };
     }
 
-    // Trả về { the: [{nga, viet, thuoc}], boQua: số dòng không đọc được }
+    // Tách một dòng thành [nga, viet, vidu] theo dấu tách chính hoặc tự nhận diện
+    function tachBaCot(s, sep) {
+      var parts = null;
+      if (sep && s.indexOf(sep) > 0) {
+        parts = s.split(sep);
+      } else if (s.indexOf("\t") > 0) {
+        parts = s.split("\t");
+      } else if (/\s[-–—]\s/.test(s)) {
+        parts = s.split(/\s[-–—]\s/);
+      } else if (s.indexOf("|") > 0) {
+        parts = s.split("|");
+      }
+      if (!parts || parts.length < 2) return null;
+      var nga = parts[0].trim();
+      var viet = parts[1].trim();
+      var vidu = parts.length >= 3 ? parts.slice(2).join(sep || " - ").trim() : "";
+      if (!nga || !viet) return null;
+      return taoThe(nga, viet, vidu);
+    }
+
+    // Trả về { the: [{nga, viet, vidu?, thuoc}], boQua: số dòng không đọc được }
     function phanTich(van) {
       var dau = layDauTach();
       var kq = { the: [], boQua: 0 };
@@ -3065,17 +3091,9 @@
       cacThe.forEach(function (chunk) {
         var s = chunk.trim();
         if (s === "") return;
-        var idx = s.indexOf(dau.tuNghia);
-        var doDai = dau.tuNghia.length;
-        if (idx <= 0) { // không thấy dấu đã chọn → thử dạng "từ - nghĩa" hoặc Tab
-          var m = s.match(/\s[-–—]\s|\t/);
-          if (m) { idx = m.index; doDai = m[0].length; } else { idx = -1; }
-        }
-        if (idx <= 0) { kq.boQua++; return; }
-        var nga = s.slice(0, idx).trim();
-        var viet = s.slice(idx + doDai).trim();
-        if (nga === "" || viet === "") { kq.boQua++; return; }
-        kq.the.push(taoThe(nga, viet));
+        var the = tachBaCot(s, dau.tuNghia);
+        if (!the) { kq.boQua++; return; }
+        kq.the.push(the);
       });
       return kq;
     }
@@ -3095,13 +3113,21 @@
         vung.appendChild(rong);
         return;
       }
+      var coVD = kq.the.some(function (t) { return !!t.vidu; });
       kq.the.slice(0, 100).forEach(function (t, i) {
         var dong = document.createElement("div");
-        dong.className = "dongXem";
+        dong.className = "dongXem" + (coVD ? " coViDu" : "");
         var a = document.createElement("span"); a.textContent = i + 1;
-        var b = document.createElement("span"); b.textContent = t.nga; b.lang = "ru";
+        var b = document.createElement("span"); b.textContent = hienNga(t); b.lang = "ru";
         var c = document.createElement("span"); c.textContent = t.viet;
         dong.appendChild(a); dong.appendChild(b); dong.appendChild(c);
+        if (coVD) {
+          var d = document.createElement("span");
+          d.className = "xemViDu";
+          d.lang = "ru";
+          d.textContent = t.vidu || "";
+          dong.appendChild(d);
+        }
         vung.appendChild(dong);
       });
       if (kq.the.length > 100) {
@@ -3461,15 +3487,10 @@
 
     // ===== NHẬP NHIỀU HỌC PHẦN (# thư mục, ## học phần) =====
     function tachDong(s) {
-      var idx = s.indexOf("\t");
-      var doDai = 1;
-      if (idx <= 0) {
-        var m = s.match(/\s[-–—]\s/);
-        if (m) { idx = m.index; doDai = m[0].length; } else { idx = s.indexOf(","); doDai = 1; }
-      }
-      if (idx <= 0) return null;
-      var nga = s.slice(0, idx).trim(), viet = s.slice(idx + doDai).trim();
-      return (nga && viet) ? taoThe(nga, viet) : null;
+      var t = tachBaCot(s, "\t");
+      if (t) return t;
+      if (s.indexOf(",") > 0) return tachBaCot(s, ",");
+      return null;
     }
 
     function phanTichNhieu(van) {
@@ -3890,10 +3911,10 @@
               return;
             }
             van.split(/\r?\n/).forEach(function (dong) {
-              var m = dong.match(/^(.+?)(?:\s[-–—]\s|\t|;|,)(.+)$/);
-              if (m && m[1].trim() && m[2].trim()) {
-                themMoi.push(taoThe(m[1].trim(), m[2].trim()));
-              }
+              var s = dong.trim();
+              if (!s) return;
+              var t = tachDong(s) || (s.indexOf(";") > 0 ? tachBaCot(s, ";") : null);
+              if (t) themMoi.push(t);
             });
           }
         } catch (loi) {
@@ -3937,9 +3958,11 @@
     function chuanNhan(nga, nhan) {   // chỉ giữ dạng có dấu nếu đúng là cùng một từ
       return (nhan && String(nhan).normalize("NFC").replace(/\u0301/g, "") === nga) ? String(nhan).normalize("NFC") : undefined;
     }
-    function taoThe(nga, viet) {
+    function taoThe(nga, viet, vidu) {
       var tn = tachNhan(nga), o = { nga: tn.nga, viet: viet, thuoc: false };
       if (tn.nhan) o.nhan = tn.nhan;
+      var vd = vidu ? String(vidu).trim() : "";
+      if (vd) o.vidu = vd;
       return o;
     }
     function hienNga(t) { return t.nhan || t.nga; }
