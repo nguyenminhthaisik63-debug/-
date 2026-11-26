@@ -431,7 +431,8 @@
     .diTiep > p { flex-basis: 100%; text-align: center; margin: 0; }
     .diTiep .nut { padding: 12px 20px; font-size: 16px; }
   
-    .viDuThe { margin-top: 10px; font-size: clamp(14px, 2.2vw, 17px); font-style: italic; color: var(--phu); font-weight: 400; line-height: 1.4; }
+    .mat { overflow-y: auto; }
+    .viDuThe { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--vien); font-size: clamp(14px, 2.2vw, 17px); font-style: italic; color: var(--chu); opacity: .88; font-weight: 400; line-height: 1.45; max-width: 92%; }
     .nhanCachThe { margin-top: 6px; display: inline-block; font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: rgba(124, 58, 237, .14); color: var(--tim); font-weight: 600; }
     .hopCach { margin: 10px auto 0; max-width: 520px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--vien); background: var(--nenHop); text-align: center; }
     .hopCach .tieuDeCach { font-size: 13px; color: var(--phu); margin-bottom: 8px; font-weight: 600; }
@@ -1440,7 +1441,7 @@
     // ===== LẶP LẠI NGẮT QUÃNG (SRS) =====
     // Mỗi từ có: ob = bậc (0..7), han = thời điểm đến hạn ôn, oc = lần ôn gần nhất, dau = lần đầu vào lịch.
     var SRS_KHOANG = [0, 1, 3, 7, 14, 30, 60, 120];   // số ngày chờ ở mỗi bậc
-    var SRS_TOI_DA = 60;                               // tối đa số từ đến hạn trong một phiên
+    var SRS_TOI_DA = 30;                               // tối đa tổng số từ trong một phiên ôn tập
 
     function srsNgay(n) {   // 0 giờ của ngày hôm nay + n ngày
       var d = new Date();
@@ -1485,9 +1486,10 @@
         });
       });
       den.sort(function (a, b) { return a.han - b.han; });
-      var moiCon = Math.max(0, thongKe.moi - moiHomNay);
-      var moiChon = moi.filter(function (t) { return !t.thuoc; }).concat(moi.filter(function (t) { return t.thuoc; })).slice(0, moiCon);
       var denChon = den.slice(0, SRS_TOI_DA);
+      var conTrong = Math.max(0, SRS_TOI_DA - denChon.length);
+      var moiCon = Math.max(0, thongKe.moi - moiHomNay);
+      var moiChon = moi.filter(function (t) { return !t.thuoc; }).concat(moi.filter(function (t) { return t.thuoc; })).slice(0, Math.min(moiCon, conTrong));
       return { den: den.length, denChon: denChon.length, moiChon: moiChon.length, moiTong: moi.length, moiHomNay: moiHomNay,
                trongLich: trongLich, vung: vung, keTiep: keTiep, list: denChon.concat(moiChon) };
     }
@@ -2013,7 +2015,17 @@
         ? (laDongTuCoCach(tu) ? ("Động từ · " + moTaCach(tu.cach)) : "Động từ (bấm ✏ để gán cách)")
         : "";
       matTruoc.textContent = truocText;
-      veNoiDungMat(matSau, sauText, tu.vidu || "", badgeSau);
+      var vdHien = tu.vidu || "";
+      if (!vdHien && tu.nga) {
+        var kTim = chuanHoa(tu.nga);
+        for (var hi = 0; hi < thuVien.length && !vdHien; hi++) {
+          var dsH = thuVien[hi].tu;
+          for (var ti = 0; ti < dsH.length; ti++) {
+            if (dsH[ti] !== tu && dsH[ti].vidu && chuanHoa(dsH[ti].nga) === kTim) { vdHien = dsH[ti].vidu; break; }
+          }
+        }
+      }
+      veNoiDungMat(matSau, sauText, vdHien, badgeSau);
       goiYChu.textContent = hienGoiY ? taoGoiY(sauText) : "";
       veHopCachHoc(tu);
       the.classList.remove("rong");
@@ -2371,16 +2383,22 @@
     // Thêm nhiều thẻ vào học phần đang mở, bỏ qua thẻ trùng từ tiếng Nga. Trả về số thẻ đã thêm.
     function themVaoHocPhan(mang) {
       var daCo = Object.create(null);
-      danhSach.forEach(function (x) { daCo[x.nga.toLowerCase()] = true; });
-      var them = 0;
+      danhSach.forEach(function (x) { daCo[chuanHoa(x.nga)] = x; });
+      var them = 0, capNhat = 0;
       mang.forEach(function (t) {
-        var khoa = t.nga.toLowerCase();
-        if (daCo[khoa]) return;
-        daCo[khoa] = true;
+        var khoa = chuanHoa(t.nga);
+        var cu = daCo[khoa];
+        if (cu) {
+          if (t.vidu && cu.vidu !== t.vidu) { cu.vidu = t.vidu; capNhat++; }
+          if (t.nhan && !cu.nhan) { cu.nhan = t.nhan; capNhat++; }
+          return;
+        }
+        daCo[khoa] = t;
         danhSach.push(t);
         them++;
       });
-      if (them > 0) luu();
+      if (them > 0 || capNhat > 0) luu();
+      themVaoHocPhan._capNhat = capNhat;
       return them;
     }
 
@@ -3179,7 +3197,7 @@
         hienGoiY = false;
         lichSu = null;
         hienThi();
-        thongBao("Đã thêm " + soThem + " thẻ mới" + (tong > soThem ? ", bỏ qua " + (tong - soThem) + " thẻ trùng" : ""));
+        var soCapNhat = themVaoHocPhan._capNhat || 0; thongBao("Đã thêm " + soThem + " thẻ mới" + (soCapNhat ? ", cập nhật ví dụ cho " + soCapNhat + " từ có sẵn" : "") + (tong > soThem + soCapNhat ? ", bỏ qua " + (tong - soThem - soCapNhat) + " thẻ trùng" : ""));
       }
       oVan.value = "";
       document.getElementById("tenHPMoi").value = "";
@@ -3571,11 +3589,14 @@
         var co = thuVien.filter(function (hp) { return hp.ten === x.ten && hp.mucId === mucId; })[0];
         var dich = co ? co.tu : [];
         var daCo = Object.create(null);
-        dich.forEach(function (t) { daCo[t.nga.toLowerCase()] = true; });
+        dich.forEach(function (t) { daCo[chuanHoa(t.nga)] = t; });
         x.the.forEach(function (t) {
-          var k = t.nga.toLowerCase();
-          if (daCo[k]) return;
-          daCo[k] = true;
+          var k = chuanHoa(t.nga);
+          if (daCo[k]) {
+            if (t.vidu && daCo[k].vidu !== t.vidu) daCo[k].vidu = t.vidu;
+            return;
+          }
+          daCo[k] = t;
           dich.push(t);
           soThe++;
         });
