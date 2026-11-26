@@ -1383,8 +1383,11 @@
       var ng = (x.ngay && typeof x.ngay === "object") ? x.ngay : {};
       Object.keys(ng).forEach(function (k) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !ng[k]) return;
-        var on = Math.max(0, parseInt(ng[k].on, 10) || 0), bi = Math.max(0, parseInt(ng[k].biet, 10) || 0);
-        if (on || bi) kq.ngay[k] = { on: on, biet: bi };
+        var on = Math.max(0, parseInt(ng[k].on, 10) || 0), bi = Math.max(0, parseInt(ng[k].biet, 10) || 0), pm = Math.max(0, parseInt(ng[k].pomo, 10) || 0);
+        if (on || bi || pm) {
+          kq.ngay[k] = { on: on, biet: bi };
+          if (pm) kq.ngay[k].pomo = pm;
+        }
       });
       return kq;
     }
@@ -1399,7 +1402,12 @@
       Object.keys(y.ngay).forEach(function (k) {
         var a = thongKe.ngay[k];
         if (!a) thongKe.ngay[k] = y.ngay[k];
-        else { a.on = Math.max(a.on, y.ngay[k].on); a.biet = Math.max(a.biet, y.ngay[k].biet); }
+        else {
+          a.on = Math.max(a.on, y.ngay[k].on);
+          a.biet = Math.max(a.biet, y.ngay[k].biet);
+          var pm = Math.max(a.pomo || 0, y.ngay[k].pomo || 0);
+          if (pm) a.pomo = pm;
+        }
       });
     }
 
@@ -1415,12 +1423,21 @@
       var truoc = o.biet;   // mục tiêu và chuỗi chỉ tính các từ ĐÃ BIẾT (vuốt phải / trả lời đúng)
       o.on = Math.max(0, o.on + buoc);
       if (biet) o.biet = Math.max(0, o.biet + buoc);
-      if (o.on === 0 && o.biet === 0) delete thongKe.ngay[khoa];
+      if (o.on === 0 && o.biet === 0 && !(o.pomo > 0)) delete thongKe.ngay[khoa];
       if (buoc > 0 && biet && truoc < thongKe.mucTieu && o.biet >= thongKe.mucTieu) {
         setTimeout(function () { thongBao("🎉 Đạt mục tiêu hôm nay: " + o.biet + " từ đã biết!"); }, 0);
       }
       return khoa;
     }
+
+    function ghiPomo() {
+      var khoa = khoaNgay(new Date());
+      var o = thongKe.ngay[khoa] || (thongKe.ngay[khoa] = { on: 0, biet: 0 });
+      o.pomo = (o.pomo || 0) + 1;
+      luu();
+      veThongKe();
+    }
+    window._ghiPhienPomo = ghiPomo;
 
     function coHoc(d) { var o = thongKe.ngay[khoaNgay(d)]; return !!o && o.biet > 0; }
 
@@ -1454,8 +1471,12 @@
 
     function veThongKe() {
       var hn = new Date(), o = thongKe.ngay[khoaNgay(hn)], n = o ? o.biet : 0, mt = thongKe.mucTieu;
+      var pomoNay = o ? (o.pomo || 0) : 0, tongPomo = 0;
       var chuoi = tinhChuoi(), tong = 0;
-      Object.keys(thongKe.ngay).forEach(function (k) { tong += thongKe.ngay[k].biet; });
+      Object.keys(thongKe.ngay).forEach(function (k) {
+        tong += thongKe.ngay[k].biet;
+        tongPomo += (thongKe.ngay[k].pomo || 0);
+      });
 
       // 7 ngày gần nhất (cũ → mới)
       var ngay7 = [], tong7 = 0, lonNhat = mt;
@@ -1470,7 +1491,8 @@
       var vung = document.getElementById("tkO");
       vung.innerHTML = "";
       [["🔥 Chuỗi hiện tại", chuoi + " ngày", chuoi > 0], ["🏆 Kỷ lục", chuoiDaiNhat() + " ngày"],
-       ["Hôm nay", n + " / " + mt], ["7 ngày qua", tong7 + " từ"], ["Tổng từ đã biết", tong + " từ"]].forEach(function (x) {
+       ["Hôm nay", n + " / " + mt], ["7 ngày qua", tong7 + " từ"], ["Tổng từ đã biết", tong + " từ"],
+       ["🍅 Pomodoro hôm nay", pomoNay + " phiên", pomoNay > 0], ["🍅 Tổng Pomodoro", tongPomo + " phiên"]].forEach(function (x) {
         var el = document.createElement("div");
         el.className = "oSo" + (x[2] ? " chinh" : "");
         var b = document.createElement("b"); b.textContent = x[1];
@@ -2670,14 +2692,13 @@
       thuVien.forEach(function (hp) {
         if (hp.mucId === mucId && hp.ten) daCo[hp.ten.trim().toLowerCase()] = true;
       });
-      var d = new Date();
-      d.setHours(12, 0, 0, 0);
-      for (var i = 0; i < 3650; i++) {
-        var ten = vt + " " + dinhDangNgayNgan(d);
+      var goc = vt + " " + dinhDangNgayNgan(new Date());
+      if (!daCo[goc.toLowerCase()]) return goc;
+      for (var i = 1; i <= 999; i++) {
+        var ten = goc + " (" + i + ")";
         if (!daCo[ten.toLowerCase()]) return ten;
-        d.setDate(d.getDate() + 1);
       }
-      return vt + " " + dinhDangNgayNgan(new Date());
+      return goc;
     }
 
     // Thẻ phân loại cụ thể đang chọn (để gán cho học phần mới tạo); không có thì null
@@ -5074,6 +5095,7 @@
     function batDauNghi() {
       dungTimer();
       pop.classList.remove("mo");
+      if (typeof window._ghiPhienPomo === "function") window._ghiPhienPomo();
       state = "break";
       tongNghi = cfg.nghi * 60;
       conLai = tongNghi;
