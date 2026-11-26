@@ -630,6 +630,94 @@
     .duongDan .hienTaiMuc { color: var(--chu); font-weight: 700; padding: 2px 6px; }
     .duongDan .dauCach { color: var(--phu); user-select: none; }
 
+  
+    /* ===== ĐỒNG HỒ POMODORO ===== */
+    #pomoWidget {
+      position: fixed;
+      right: 16px;
+      bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+      z-index: 42;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 13px;
+      border-radius: 999px;
+      background: var(--hop);
+      border: 1.5px solid var(--vienHop);
+      color: var(--chu);
+      font-size: 14px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .28);
+      cursor: pointer;
+    }
+    #pomoWidget:hover { border-color: var(--timNhat); background: var(--hopHover); }
+    #pomoWidget.dangChay { border-color: var(--luc); }
+    #pomoWidget .cham { width: 8px; height: 8px; border-radius: 50%; background: var(--phu); flex: none; }
+    #pomoWidget.dangChay .cham { background: var(--luc); box-shadow: 0 0 8px var(--luc); }
+    body.dangZen #pomoWidget, body.dangZen #pomoPop { display: none !important; }
+
+    #pomoPop {
+      position: fixed;
+      right: 16px;
+      bottom: calc(134px + env(safe-area-inset-bottom, 0px));
+      z-index: 43;
+      width: min(300px, calc(100vw - 32px));
+      background: var(--hop);
+      border: 1.5px solid var(--vienHop);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, .42);
+      display: none;
+    }
+    #pomoPop.mo { display: block; }
+    #pomoPop h3 { margin: 0 0 10px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+    .pomoDong { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; font-size: 13.5px; }
+    .pomoDong input { width: 76px; padding: 6px 8px; text-align: center; font-size: 15px; font-weight: 700; }
+    .pomoNhanh { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 10px; }
+    .pomoNhanh button { border: 1px solid var(--vien); background: var(--nen); color: var(--phu); border-radius: 999px; padding: 3px 9px; font-size: 12px; font-weight: 600; }
+    .pomoNhanh button:hover, .pomoNhanh button.chon { border-color: var(--timNhat); color: var(--chu); background: var(--hopHover); }
+    .pomoNut { display: flex; gap: 8px; margin-top: 12px; }
+    .pomoNut button { flex: 1; padding: 9px 10px; font-size: 14px; }
+
+    /* Màn hình nghỉ bắt buộc (khóa toàn màn hình trên cả Zen Mode) */
+    #pomoNghiOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 95;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(8, 13, 28, .94);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    #pomoNghiOverlay.hien { display: flex; }
+    .pomoNghiHop {
+      width: min(440px, 100%);
+      background: var(--hop);
+      border: 1.5px solid var(--vienHop);
+      border-radius: 24px;
+      padding: 28px 24px;
+      text-align: center;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, .55);
+    }
+    .pomoNghiIcon { font-size: 46px; line-height: 1; margin-bottom: 10px; }
+    .pomoNghiHop h2 { margin: 0 0 6px; font-size: 22px; }
+    .pomoNghiHop p { margin: 0 0 16px; color: var(--phu); font-size: 14.5px; }
+    .pomoNghiGio {
+      font-size: clamp(46px, 12vw, 68px);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .03em;
+      color: var(--luc);
+      margin: 6px 0 14px;
+    }
+    .pomoThanh { height: 8px; border-radius: 999px; background: var(--thanhNen); overflow: hidden; margin-bottom: 18px; }
+    .pomoThanh i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--tim), var(--luc)); transition: width .35s linear; }
+    .pomoKhoaGhiChu { font-size: 13px; color: var(--cam); font-weight: 600; margin-top: 4px; }
+
   </style>
 </head>
 <body>
@@ -1112,6 +1200,9 @@
     function batTatZen(bat) {
       var laZen = bat !== undefined ? bat : !khuHocEl.classList.contains("zenMode");
       khuHocEl.classList.toggle("zenMode", laZen);
+      document.body.classList.toggle("dangZen", laZen);
+      var pp = document.getElementById("pomoPop");
+      if (laZen && pp) pp.classList.remove("mo");
       document.body.style.overflow = laZen ? "hidden" : "";   // khóa cuộn trang phía sau
       if (laZen) {
         window.scrollTo({ top: 0 });
@@ -4814,5 +4905,296 @@
       });
     }
   </script>
+
+  <!-- ===== ĐỒNG HỒ POMODORO & MÀN HÌNH NGHỈ BẮT BUỘC ===== -->
+  <button id="pomoWidget" type="button" title="Đồng hồ Pomodoro (ẩn khi vào Zen Mode)" aria-label="Đồng hồ Pomodoro">
+    <span class="cham" aria-hidden="true"></span>
+    <span>🍅</span>
+    <span id="pomoText">20:00</span>
+  </button>
+
+  <div id="pomoPop" role="dialog" aria-label="Cài đặt Pomodoro">
+    <h3>
+      <span>🍅 Pomodoro</span>
+      <button type="button" id="pomoDongPop" class="nut" style="padding:4px 9px;font-size:13px">✕</button>
+    </h3>
+    <div class="pomoDong">
+      <label for="pomoHocPhut">Thời gian học (phút)</label>
+      <input type="number" id="pomoHocPhut" min="1" max="180" value="20" inputmode="numeric">
+    </div>
+    <div class="pomoNhanh" id="pomoNhanhHoc">
+      <button type="button" data-hoc="15">15p</button>
+      <button type="button" data-hoc="20">20p</button>
+      <button type="button" data-hoc="25">25p</button>
+      <button type="button" data-hoc="45">45p</button>
+    </div>
+    <div class="pomoDong">
+      <label for="pomoNghiPhut">Nghỉ bắt buộc (phút)</label>
+      <input type="number" id="pomoNghiPhut" min="1" max="60" value="2" inputmode="numeric">
+    </div>
+    <div class="pomoNhanh" id="pomoNhanhNghi">
+      <button type="button" data-nghi="1">1p</button>
+      <button type="button" data-nghi="2">2p</button>
+      <button type="button" data-nghi="3">3p</button>
+      <button type="button" data-nghi="5">5p</button>
+    </div>
+    <p class="muted" style="font-size:12px;margin:4px 0 0">Khi bật Zen Mode đồng hồ sẽ tự ẩn và chạy ngầm, đến giờ nghỉ sẽ tự khóa màn hình để bạn nghỉ ngơi.</p>
+    <div class="pomoNut">
+      <button type="button" id="pomoToggle" class="nut tim">▶ Bắt đầu</button>
+      <button type="button" id="pomoReset" class="nut">↺ Đặt lại</button>
+    </div>
+  </div>
+
+  <div id="pomoNghiOverlay" role="alertdialog" aria-modal="true" aria-labelledby="pomoNghiTieuDe">
+    <div class="pomoNghiHop">
+      <div class="pomoNghiIcon" id="pomoNghiIcon">☕</div>
+      <h2 id="pomoNghiTieuDe">Đến giờ nghỉ ngơi · Перерыв</h2>
+      <p id="pomoNghiMoTa">Hãy rời mắt khỏi màn hình, uống ngụm nước và thả lỏng vai trong lúc đồng hồ đếm ngược nhé!</p>
+      <div class="pomoNghiGio" id="pomoNghiGio">02:00</div>
+      <div class="pomoThanh"><i id="pomoThanhIn"></i></div>
+      <div class="pomoKhoaGhiChu" id="pomoKhoaGhiChu">🔒 Bắt buộc dừng học trong thời gian nghỉ</div>
+      <div class="pomoNut" id="pomoNghiXongNut" style="display:none;margin-top:16px">
+        <button type="button" id="pomoTiepTuc" class="nut tim">▶ Tiếp tục học</button>
+        <button type="button" id="pomoDongNghi" class="nut">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var POMO_KEY = "pomoNga";
+    var cfg = { hoc: 20, nghi: 2 };
+    try {
+      var luuCfg = JSON.parse(localStorage.getItem(POMO_KEY) || "null");
+      if (luuCfg) {
+        if (luuCfg.hoc >= 1 && luuCfg.hoc <= 180) cfg.hoc = Math.round(luuCfg.hoc);
+        if (luuCfg.nghi >= 1 && luuCfg.nghi <= 60) cfg.nghi = Math.round(luuCfg.nghi);
+      }
+    } catch (e) {}
+
+    var state = "idle"; // idle | focus | paused | break | breakDone
+    var conLai = cfg.hoc * 60;
+    var tongNghi = cfg.nghi * 60;
+    var endAt = 0;
+    var timer = null;
+
+    var widget = document.getElementById("pomoWidget");
+    var txt = document.getElementById("pomoText");
+    var pop = document.getElementById("pomoPop");
+    var inpHoc = document.getElementById("pomoHocPhut");
+    var inpNghi = document.getElementById("pomoNghiPhut");
+    var btnToggle = document.getElementById("pomoToggle");
+    var btnReset = document.getElementById("pomoReset");
+    var btnDongPop = document.getElementById("pomoDongPop");
+
+    var overlay = document.getElementById("pomoNghiOverlay");
+    var nghiGio = document.getElementById("pomoNghiGio");
+    var thanhIn = document.getElementById("pomoThanhIn");
+    var nghiTieuDe = document.getElementById("pomoNghiTieuDe");
+    var nghiMoTa = document.getElementById("pomoNghiMoTa");
+    var nghiIcon = document.getElementById("pomoNghiIcon");
+    var khoaGhiChu = document.getElementById("pomoKhoaGhiChu");
+    var xongNut = document.getElementById("pomoNghiXongNut");
+
+    inpHoc.value = cfg.hoc;
+    inpNghi.value = cfg.nghi;
+
+    function luuCfgPomo() {
+      try { localStorage.setItem(POMO_KEY, JSON.stringify(cfg)); } catch (e) {}
+    }
+
+    function fmtGiay(s) {
+      s = Math.max(0, Math.ceil(s));
+      var m = Math.floor(s / 60), r = s % 60;
+      return String(m).padStart(2, "0") + ":" + String(r).padStart(2, "0");
+    }
+
+    function keuChuong(kieu) {
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        var ctx = new AC();
+        var nots = kieu === "nghi" ? [523.25, 659.25, 783.99] : [659.25, 783.99, 1046.5];
+        nots.forEach(function (f, i) {
+          var o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = "sine"; o.frequency.value = f;
+          g.gain.setValueAtTime(0.001, ctx.currentTime + i * 0.16);
+          g.gain.exponentialRampToValueAtTime(0.14, ctx.currentTime + i * 0.16 + 0.03);
+          g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.16 + 0.35);
+          o.connect(g); g.connect(ctx.destination);
+          o.start(ctx.currentTime + i * 0.16);
+          o.stop(ctx.currentTime + i * 0.16 + 0.38);
+        });
+      } catch (e) {}
+    }
+
+    function veNutNhanh() {
+      document.querySelectorAll("#pomoNhanhHoc button").forEach(function (b) {
+        b.classList.toggle("chon", +b.dataset.hoc === cfg.hoc);
+      });
+      document.querySelectorAll("#pomoNhanhNghi button").forEach(function (b) {
+        b.classList.toggle("chon", +b.dataset.nghi === cfg.nghi);
+      });
+    }
+
+    function veUI() {
+      txt.textContent = fmtGiay(conLai);
+      widget.classList.toggle("dangChay", state === "focus");
+      btnToggle.textContent = state === "focus" ? "⏸ Tạm dừng" : (state === "paused" ? "▶ Tiếp tục" : "▶ Bắt đầu");
+      veNutNhanh();
+
+      if (state === "break") {
+        overlay.classList.add("hien");
+        nghiIcon.textContent = "☕";
+        nghiTieuDe.textContent = "Đến giờ nghỉ ngơi · Перерыв";
+        nghiMoTa.textContent = "Hãy rời mắt khỏi màn hình, uống ngụm nước và thả lỏng vai trong lúc đồng hồ đếm ngược nhé!";
+        nghiGio.textContent = fmtGiay(conLai);
+        var pt = tongNghi > 0 ? Math.min(100, Math.max(0, Math.round(((tongNghi - conLai) / tongNghi) * 100))) : 100;
+        thanhIn.style.width = pt + "%";
+        khoaGhiChu.style.display = "";
+        xongNut.style.display = "none";
+      } else if (state === "breakDone") {
+        overlay.classList.add("hien");
+        nghiIcon.textContent = "✨";
+        nghiTieuDe.textContent = "Hết giờ nghỉ! · Пора учиться";
+        nghiMoTa.textContent = "Bạn đã nghỉ đủ " + cfg.nghi + " phút. Sẵn sàng cho phiên học " + cfg.hoc + " phút tiếp theo nhé!";
+        nghiGio.textContent = "00:00";
+        thanhIn.style.width = "100%";
+        khoaGhiChu.style.display = "none";
+        xongNut.style.display = "flex";
+      } else {
+        overlay.classList.remove("hien");
+      }
+    }
+
+    function dungTimer() {
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+
+    function batDauNghi() {
+      dungTimer();
+      pop.classList.remove("mo");
+      state = "break";
+      tongNghi = cfg.nghi * 60;
+      conLai = tongNghi;
+      endAt = Date.now() + tongNghi * 1000;
+      keuChuong("nghi");
+      veUI();
+      timer = setInterval(nhip, 250);
+    }
+
+    function batDauHoc(tuDau) {
+      dungTimer();
+      if (tuDau || conLai <= 0) conLai = cfg.hoc * 60;
+      state = "focus";
+      endAt = Date.now() + conLai * 1000;
+      veUI();
+      timer = setInterval(nhip, 250);
+    }
+
+    function nhip() {
+      var left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+      if (left !== conLai) {
+        conLai = left;
+        veUI();
+      }
+      if (left <= 0) {
+        if (state === "focus") {
+          batDauNghi();
+        } else if (state === "break") {
+          dungTimer();
+          state = "breakDone";
+          conLai = 0;
+          keuChuong("xong");
+          veUI();
+        }
+      }
+    }
+
+    function capNhatCaiDat(hocMoi, nghiMoi) {
+      if (hocMoi >= 1 && hocMoi <= 180) cfg.hoc = Math.round(hocMoi);
+      if (nghiMoi >= 1 && nghiMoi <= 60) cfg.nghi = Math.round(nghiMoi);
+      inpHoc.value = cfg.hoc;
+      inpNghi.value = cfg.nghi;
+      luuCfgPomo();
+      if (state === "idle") conLai = cfg.hoc * 60;
+      veUI();
+    }
+
+    widget.onclick = function (e) {
+      e.stopPropagation();
+      pop.classList.toggle("mo");
+    };
+    btnDongPop.onclick = function () { pop.classList.remove("mo"); };
+    document.addEventListener("click", function (e) {
+      if (pop.classList.contains("mo") && !e.target.closest("#pomoPop, #pomoWidget")) {
+        pop.classList.remove("mo");
+      }
+    });
+
+    inpHoc.onchange = function () { capNhatCaiDat(parseInt(this.value, 10) || cfg.hoc, cfg.nghi); };
+    inpNghi.onchange = function () { capNhatCaiDat(cfg.hoc, parseInt(this.value, 10) || cfg.nghi); };
+    document.querySelectorAll("#pomoNhanhHoc button").forEach(function (b) {
+      b.onclick = function () { capNhatCaiDat(+b.dataset.hoc, cfg.nghi); };
+    });
+    document.querySelectorAll("#pomoNhanhNghi button").forEach(function (b) {
+      b.onclick = function () { capNhatCaiDat(cfg.hoc, +b.dataset.nghi); };
+    });
+
+    btnToggle.onclick = function () {
+      if (state === "focus") {
+        dungTimer();
+        conLai = Math.max(1, Math.ceil((endAt - Date.now()) / 1000));
+        state = "paused";
+        veUI();
+      } else {
+        batDauHoc(state === "idle");
+        pop.classList.remove("mo");
+      }
+    };
+
+    btnReset.onclick = function () {
+      dungTimer();
+      state = "idle";
+      conLai = cfg.hoc * 60;
+      veUI();
+    };
+
+    document.getElementById("pomoTiepTuc").onclick = function () {
+      batDauHoc(true);
+    };
+    document.getElementById("pomoDongNghi").onclick = function () {
+      state = "idle";
+      conLai = cfg.hoc * 60;
+      veUI();
+    };
+
+    // Chặn toàn bộ phím tắt khi đang trong thời gian nghỉ bắt buộc
+    window.addEventListener("keydown", function (e) {
+      if (state === "break") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    }, true);
+
+    // Cho phép kiểm thử nội bộ (không ảnh hưởng người dùng)
+    window._pomoCtrl = {
+      getState: function () { return state; },
+      forceBreakNow: function (giay) {
+        dungTimer();
+        pop.classList.remove("mo");
+        state = "break";
+        tongNghi = giay || (cfg.nghi * 60);
+        conLai = tongNghi;
+        endAt = Date.now() + tongNghi * 1000;
+        veUI();
+        timer = setInterval(nhip, 100);
+      }
+    };
+
+    veUI();
+  })();
+  </script>
+
 </body>
 </html>
